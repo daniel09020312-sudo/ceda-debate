@@ -1,0 +1,1034 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AI 의료 결정 토론 보드</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: 한 화면 앱. 상단 띠(논제 + 보기 전환) → 본문은 [브레인스토밍 보드] / [나란히] / [최종 정리 창]. 보드는 무한 캔버스 위 카드와 연결선. */
+:root{
+  --bg:#f2f4f7; --surface:#ffffff; --sunk:#e6eaf0; --grid:#dde2ea; --line:#c9d1dd; --fg:#17202b; --muted:#5a6575;
+  --pro:#1f4fb8; --pro-soft:#e2eafb; --con:#b0234a; --con-soft:#f8e1e7;
+  --src:#2f6b4f; --src-soft:#e1f0e8; --memo:#7a5a00; --memo-soft:#fbf2d4;
+  --warn:#9a6400; --warn-soft:#fbefd2; --ok:#1d7a4c;
+  --display:"Black Han Sans","IBM Plex Sans KR",system-ui,sans-serif;
+  --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f131a; --surface:#171d27; --sunk:#0b0e14; --grid:#1d2430; --line:#2d3747; --fg:#e7ebf1; --muted:#98a3b4;
+  --pro:#86a9ff; --pro-soft:#1a2746; --con:#ff86a3; --con-soft:#3a1825;
+  --src:#6fd0a2; --src-soft:#14302a; --memo:#f0c766; --memo-soft:#33290f;
+  --warn:#f0bf5a; --warn-soft:#352914; --ok:#5fd39a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f131a; --surface:#171d27; --sunk:#0b0e14; --grid:#1d2430; --line:#2d3747; --fg:#e7ebf1; --muted:#98a3b4;
+  --pro:#86a9ff; --pro-soft:#1a2746; --con:#ff86a3; --con-soft:#3a1825;
+  --src:#6fd0a2; --src-soft:#14302a; --memo:#f0c766; --memo-soft:#33290f;
+  --warn:#f0bf5a; --warn-soft:#352914; --ok:#5fd39a; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html.noai #aiReb,html.noai [data-polish],html.noai #genCx{display:none!important}
+body{margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.5;overflow:hidden}
+.app{height:100%;display:flex;flex-direction:column}
+header.top{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;justify-content:space-between;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:2px solid var(--fg);background:var(--surface)}
+.ttl{min-width:0;flex:1 1 360px}
+.eyebrow{font-size:11px;letter-spacing:.08em;color:var(--muted);font-weight:600}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(17px,2.2vw,23px);line-height:1.25;margin:2px 0 0;text-wrap:balance}
+.seg{display:inline-flex;background:var(--sunk);border-radius:9px;padding:3px;gap:2px}
+.seg button{font:inherit;font-size:13px;font-weight:600;border:0;background:transparent;color:var(--muted);padding:6px 11px;border-radius:7px;cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgb(0 0 0 / .14)}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--pro);outline-offset:2px}
+.btn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:6px 11px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--fg)}
+.btn.primary{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.btn.pro{color:var(--pro)}.btn.con{color:var(--con)}.btn.src{color:var(--src)}.btn.memo{color:var(--memo)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.danger{color:var(--con)}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.muted{color:var(--muted)}.small{font-size:12.5px}
+.status{font-size:12.5px;min-height:1.2em}.status.err{color:var(--con)}
+.pill{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.pill.ok{color:var(--ok)}.pill.need{background:var(--warn-soft);color:var(--warn)}.pill.new{background:var(--fg);color:var(--bg)}
+.tag{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:700}
+.tag.pro{background:var(--pro-soft);color:var(--pro)}.tag.con{background:var(--con-soft);color:var(--con)}.tag.src{background:var(--src-soft);color:var(--src)}
+
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr)}
+main.split{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+@media (max-width:860px){main.split{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)}}
+
+/* ---------- 보드 ---------- */
+#boardWrap{position:relative;min-height:0;min-width:0;overflow:hidden}
+#board{position:absolute;inset:0;overflow:hidden;touch-action:none;cursor:grab;background-color:var(--bg);background-image:radial-gradient(var(--grid) 1.2px,transparent 1.3px);background-size:24px 24px}
+#board.panning{cursor:grabbing}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+#edges{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible}
+#edges path.e{fill:none;stroke-width:2}
+#edges path.hit{fill:none;stroke:transparent;stroke-width:14;cursor:pointer}
+#edges .lbl{font:600 11px var(--body);paint-order:stroke;stroke:var(--bg);stroke-width:4px;stroke-linejoin:round}
+.nd{position:absolute;width:236px;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:8px 11px 9px;cursor:pointer;user-select:none;-webkit-user-select:none;display:flex;flex-direction:column;gap:3px;box-shadow:0 1px 2px rgb(0 0 0 / .06)}
+.nd.claim{border-left-width:5px}
+.nd.pro{border-left-color:var(--pro)}.nd.con{border-left-color:var(--con)}
+.nd.src{background:var(--src-soft);border-color:color-mix(in srgb,var(--src) 35%,transparent);width:220px}
+.nd.memo{background:var(--memo-soft);border-style:dashed;border-color:color-mix(in srgb,var(--memo) 45%,transparent);width:200px}
+.nd.issue{width:170px;background:var(--fg);color:var(--bg);border-color:var(--fg);padding:12px 14px}
+.nd.issue .nd-t{font-family:var(--display);font-weight:400;font-size:20px}
+.nd.issue .nd-r{color:color-mix(in srgb,var(--bg) 75%,transparent)}
+.nd.sel{box-shadow:0 0 0 3px color-mix(in srgb,var(--fg) 30%,transparent);border-color:var(--fg)}
+.nd.flash{animation:flash 1.2s ease-out}
+@keyframes flash{0%{box-shadow:0 0 0 8px color-mix(in srgb,var(--warn) 55%,transparent)}100%{box-shadow:0 0 0 0 transparent}}
+.nd.drop{box-shadow:0 0 0 3px var(--ok)}
+.nd-kind{font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--muted)}
+.nd.pro .nd-kind{color:var(--pro)}.nd.con .nd-kind{color:var(--con)}.nd.src .nd-kind{color:var(--src)}.nd.memo .nd-kind{color:var(--memo)}
+.nd-t{font-weight:600;font-size:13.5px;line-height:1.4}
+.nd-r{font-size:12px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.nd-meta{display:flex;gap:4px;flex-wrap:wrap;margin-top:2px}
+.port{position:absolute;right:-9px;top:50%;width:18px;height:18px;margin-top:-9px;border-radius:50%;background:var(--surface);border:2px solid var(--muted);cursor:crosshair;display:grid;place-items:center;font-size:12px;line-height:1;color:var(--muted);font-weight:700}
+.port:hover{border-color:var(--fg);color:var(--fg)}
+.nd.issue .port{display:none}
+
+.hud{position:absolute;display:flex;gap:6px;flex-wrap:wrap;align-items:center;z-index:5}
+.hud.tl{left:max(12px,env(safe-area-inset-left,0px));top:12px;right:12px;pointer-events:none}
+.hud.tl > *{pointer-events:auto}
+.hud.bl{left:max(12px,env(safe-area-inset-left,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+.hud .grp{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px;box-shadow:0 2px 8px rgb(0 0 0 / .08);flex-wrap:wrap}
+.hud .grp .btn{border-color:transparent}
+.zoomv{font-family:var(--mono);font-size:12px;min-width:44px;text-align:center;font-variant-numeric:tabular-nums;color:var(--muted);align-self:center}
+.hint{font-size:12px;color:var(--muted);background:color-mix(in srgb,var(--surface) 88%,transparent);padding:4px 9px;border-radius:7px}
+
+.drawer{position:absolute;top:0;bottom:0;width:min(360px,100%);background:var(--surface);border:1px solid var(--line);z-index:8;overflow-y:auto;padding:14px 16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;box-shadow:0 6px 24px rgb(0 0 0 / .14)}
+#panel{right:0;border-right:0}
+#lib{left:0;border-left:0}
+@media (max-width:640px){
+  .drawer{top:auto;width:100%;max-height:62%;border-radius:14px 14px 0 0;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+}
+.drawer h3{margin:0;font-size:15px}
+.drawer .head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.field{display:flex;flex-direction:column;gap:3px}
+.field label,.flabel{font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.03em}
+input[type=text],input[type=url],textarea,select{font:inherit;font-size:13.5px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
+textarea{resize:vertical;min-height:58px}
+.conn{display:flex;flex-direction:column;gap:4px}
+.conn div{display:flex;gap:6px;align-items:center;justify-content:space-between;font-size:12.5px;background:var(--bg);border-radius:7px;padding:4px 4px 4px 8px}
+.conn span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.libitem{border:1px solid var(--line);border-radius:10px;padding:10px 11px;display:flex;flex-direction:column;gap:5px;background:var(--bg)}
+.libitem b{font-size:13.5px}
+.libitem p{margin:0;font-size:12.5px;color:var(--muted)}
+.libitem a{font-size:12px;color:var(--src);word-break:break-all}
+hr.sep{border:0;border-top:1px solid var(--line);margin:4px 0;width:100%}
+
+/* ---------- 최종 정리 창 ---------- */
+#sumWrap{min-height:0;min-width:0;overflow-y:auto;background:var(--sunk);border-left:2px solid var(--fg)}
+@media (max-width:860px){#sumWrap{border-left:0;border-top:2px solid var(--fg)}}
+main:not(.split) #sumWrap{border:0}
+.sheet{max-width:880px;margin:0 auto;padding-block:18px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+.sheet-top{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center}
+.sheet-top h2{margin:0;font-family:var(--display);font-weight:400;font-size:22px}
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+.sec h3{margin:0 0 10px;font-size:15.5px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.sec h3 .no{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.sec h3 small{font-weight:500;color:var(--muted);font-size:12px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+th{background:var(--bg);font-weight:700;font-size:12.5px}
+td.c{text-align:center;font-weight:700;background:var(--bg);white-space:nowrap}
+th.pro{color:var(--pro)}th.con{color:var(--con)}
+td ul{margin:0;padding-left:16px}
+.jump{border:0;background:none;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.jump:hover{text-decoration-color:var(--fg)}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:640px){.grid2{grid-template-columns:minmax(0,1fr)}}
+main.split .grid2{grid-template-columns:minmax(0,1fr)}
+.argcard{border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;font-size:13px;background:var(--bg)}
+.argcard.pro{border-left-color:var(--pro)}.argcard.con{border-left-color:var(--con)}
+.argcard .k{font-size:11px;font-weight:700;color:var(--muted)}
+.speech textarea{min-height:240px;line-height:1.7;font-size:14px}
+.meter{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.meter.over{color:var(--con)}
+.order{display:flex;flex-wrap:wrap;gap:4px;font-size:11.5px}
+.order span{padding:2px 7px;border-radius:5px;background:var(--bg)}
+.order .p{color:var(--pro)}.order .c{color:var(--con)}
+.qitem{border:1px solid var(--line);border-radius:9px;padding:9px 11px;display:flex;flex-direction:column;gap:5px;background:var(--bg)}
+.qitem .lbl{font-size:11px;font-weight:700;letter-spacing:.03em;color:var(--muted)}
+.qitem p{margin:0;font-size:13.5px}
+.tips{font-size:12.5px;color:var(--muted);margin:0;padding-left:18px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:9px;font-size:13px;z-index:20;display:flex;gap:10px;align-items:center;max-width:calc(100% - 32px)}
+.toast button{font:inherit;font-weight:700;border:0;background:transparent;color:var(--bg);text-decoration:underline;cursor:pointer}
+@media (prefers-reduced-motion:reduce){.nd.flash{animation:none}}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="ttl">
+      <div class="eyebrow">CEDA 반대 신문식 토론 · 정책 논제 · 찬성·반대 모두 준비</div>
+      <h1>AI가 의료진의 생명 관련 의사결정을 대신하는 것을 허용해야 한다</h1>
+    </div>
+    <div class="seg" role="group" aria-label="화면 보기">
+      <button aria-pressed="true" data-mode="board">브레인스토밍 보드</button>
+      <button aria-pressed="false" data-mode="split">나란히 보기</button>
+      <button aria-pressed="false" data-mode="sum">최종 정리 창</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section id="boardWrap" aria-label="브레인스토밍 보드">
+      <div id="board">
+        <div id="world">
+          <svg id="edges" aria-hidden="true">
+            <defs>
+              <marker id="m-pro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--pro)"/></marker>
+              <marker id="m-con" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--con)"/></marker>
+              <marker id="m-sup" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--src)"/></marker>
+              <marker id="m-link" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--muted)"/></marker>
+            </defs>
+            <g id="edgeLayer"></g>
+            <path id="tempEdge" class="e" style="stroke:var(--fg);stroke-dasharray:5 4" d=""/>
+          </svg>
+          <div id="nodes"></div>
+        </div>
+      </div>
+      <div class="hud tl">
+        <div class="grp">
+          <button class="btn src" id="openLib">자료함·자료 넣기</button>
+        </div>
+        <div class="grp" role="group" aria-label="카드 추가">
+          <button class="btn pro" data-add="pro">+ 찬성</button>
+          <button class="btn con" data-add="con">+ 반대</button>
+          <button class="btn src" data-add="src">+ 근거</button>
+          <button class="btn memo" data-add="memo">+ 메모</button>
+        </div>
+        <span class="hint" id="hint">카드를 끌어 옮기고, 오른쪽 ● 점을 끌어 다른 카드에 놓으면 연결됩니다.</span>
+      </div>
+      <div class="hud bl">
+        <div class="grp">
+          <button class="btn" id="zOut" aria-label="축소">−</button>
+          <span class="zoomv" id="zv">100%</span>
+          <button class="btn" id="zIn" aria-label="확대">+</button>
+          <button class="btn" id="zFit">전체 보기</button>
+          <button class="btn" id="layoutBtn">자동 정렬</button>
+          <button class="btn" id="saveFile">파일로 저장</button>
+          <label class="btn" for="loadFile" style="cursor:pointer">파일 불러오기</label><input type="file" id="loadFile" accept=".json,application/json" hidden>
+        </div>
+      </div>
+      <aside class="drawer" id="lib" hidden aria-label="자료함"></aside>
+      <aside class="drawer" id="panel" hidden aria-label="카드 편집"></aside>
+    </section>
+
+    <section id="sumWrap" hidden aria-label="최종 정리 창">
+      <div class="sheet" id="sheet"></div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+const KEY = "ceda-ai-med-board-v2";
+const ISSUES = {
+  problem:{no:"쟁점 1", name:"문제", desc:"지금 생명 판단에 중대·시급한 문제가 있는가"},
+  solution:{no:"쟁점 2", name:"해결 방안", desc:"AI가 대신하면 해결되고 실행 가능한가"},
+  cost:{no:"쟁점 3", name:"이익 및 비용", desc:"이익이 비용·부작용보다 큰가"}
+};
+const IKEYS = Object.keys(ISSUES);
+const sideName = s => s === "pro" ? "찬성" : s === "con" ? "반대" : "";
+const other = s => s === "pro" ? "con" : "pro";
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let uid = 0; const nid = p => (p||"n") + Date.now().toString(36) + (uid++).toString(36);
+
+/* ---------- 검증한 자료 (자료함) ---------- */
+const LIBRARY = [
+ {id:"L1", use:"pro", issue:"problem", title:"한국 의사 수, OECD 최하위권", summary:"2023년 기준 한국의 인구 1,000명당 임상의사는 2.66명(한의사 포함)으로 일본 다음으로 적다. OECD 평균은 3.86명.", cite:"보건복지부, 「OECD 보건통계 2025」 요약 / 머니투데이 2025.7.30", url:"https://v.daum.net/v/20250730120211607"},
+ {id:"L2", use:"both", issue:"problem", title:"추석 연휴 응급환자 재이송 40% 증가", summary:"2024년 추석 전후 2주간 119 재이송은 259건으로 전년 같은 기간(184건)보다 약 40% 늘었고, 사유의 48.2%가 ‘전문의 부재’였다. 단, 소방청은 재이송이 환자에게 맞는 병원을 찾는 과정이라 단순 비교는 부적절하다고 밝혔다.", cite:"소방청 제출 자료(양부남 의원실) / 뉴시스 2024.10.3", url:"https://www.newsis.com/view/NISX20241002_0002907214"},
+ {id:"L3", use:"pro", issue:"problem", title:"의료 과실, 미국 사망 원인 3위 수준 추정", summary:"존스홉킨스대 연구진은 의료 과실로 인한 사망이 미국 사망 원인 3위 수준이라고 추정했다. 다만 추정 방법을 두고 학계 비판도 있다.", cite:"Makary & Daniel, BMJ 2016;353:i2139", url:""},
+ {id:"L4", use:"both", issue:"solution", title:"패혈증 조기경보 AI ‘TREWS’, 사망률 18% 감소", summary:"존스홉킨스 5개 병원, 76만 건 이상 진료에 적용한 결과 패혈증 사망률이 18% 줄고 치료가 평균 약 2시간 빨라졌다. 단, AI는 경고만 하고 최종 결정은 의료진이 했다(경보의 약 89%를 의료진이 검토).", cite:"Adams et al., Nature Medicine 2022 / Scientific American 보도", url:"https://www.scientificamerican.com/article/algorithm-that-detects-sepsis-cut-deaths-by-nearly-20-percent/"},
+ {id:"L5", use:"pro", issue:"solution", title:"유방암 판독 AI, 전문의보다 오진 감소", summary:"구글 연구진의 유방암 검진 AI는 전문의 대비 위음성을 미국 9.4%p·영국 2.7%p, 위양성을 미국 5.7%p·영국 1.2%p 줄였다.", cite:"McKinney et al., Nature 2020 / Northwestern University 보도", url:"https://news.northwestern.edu/stories/2020/01/ai-breast-cancer"},
+ {id:"L6", use:"con", issue:"solution", title:"패혈증 예측 AI, 실제 병원에서 환자 67% 놓쳐", summary:"미국에서 널리 쓰인 Epic 패혈증 모델을 미시간대 병원 환자 27,697명에 독립 검증한 결과, 실제 패혈증 환자의 67%를 놓쳤고 패혈증이 아닌 환자의 18%에 경보를 냈다.", cite:"Wong et al., JAMA Internal Medicine 2021", url:"https://hospitalpharmacyeurope.com/news/infectious-disease/commonly-used-sepsis-model-fails-to-identify-over-two-thirds-of-patients-with-the-condition/"},
+ {id:"L7", use:"both", issue:"cost", title:"의료 알고리즘의 인종 편향", summary:"미국에서 널리 쓰인 건강관리 알고리즘이 ‘의료비’를 건강 필요의 대리 지표로 써서, 같은 위험 점수일 때 흑인 환자가 더 아팠다. 추가 관리 대상 흑인 환자가 절반 이하로 줄었다. 지표를 바꾸자 편향이 해소됐다.", cite:"Obermeyer et al., Science 2019 / UC Berkeley 보도", url:"https://chmi.berkeley.edu/news/dissecting-racial-bias-in-an-algorithm-used-to-manage-the-health-of-populations"},
+ {id:"L8", use:"both", issue:"cost", title:"AI가 틀리면 의사도 따라 틀린다(자동화 편향)", summary:"영상의학과 의사 27명 실험에서 AI가 틀린 제안을 하자 경험이 적은 의사의 정확도는 약 80%에서 20% 미만으로, 경험 많은 의사도 82%에서 45.5%로 떨어졌다.", cite:"Radiology 2023 / 북미영상의학회(RSNA) 보도자료", url:"https://www.rsna.org/media/press/i/2432"},
+ {id:"L9", use:"pro", issue:"problem", title:"의료진, 보조 경고 약 75% 무시(경보 피로)", summary:"입원 환자 약물 관련 임상 의사결정 지원 경고의 약 4분의 3이 무시됐고, 그중 40%는 부적절한 무시였다.", cite:"Journal of the American Medical Informatics Association / Healthcare Dive 2017.11.1", url:"https://www.healthcaredive.com/news/study-underscores-need-to-improve-clinical-alerts/509730/"},
+ {id:"L10", use:"con", issue:"cost", title:"WHO: 의료 결정의 통제권은 사람에게", summary:"WHO는 보건 AI 6원칙 중 첫째로 ‘인간 자율성 보호’를 들며, 의료 시스템과 의료 결정의 통제권은 사람이 가져야 한다고 밝혔다.", cite:"WHO, Ethics and governance of artificial intelligence for health (2021.6.28)", url:"https://who.int/news/item/28-06-2021-who-issues-first-global-report-on-ai-in-health-and-six-guiding-principles-for-its-design-and-use"},
+ {id:"L11", use:"con", issue:"solution", title:"EU AI Act: 의료 AI는 ‘고위험’, 사람 감독 의무", summary:"의료기기 AI는 고위험으로 분류되어 위험 관리·데이터 관리·사람의 감독·시판 후 감시 의무를 진다. 고위험 규정은 2028년 8월 2일부터 적용된다.", cite:"법률신문 2026.8.20 「의료 AI 시대, 기업과 의료기관이 알아야 할 규제 변화」", url:"https://www.lawtimes.co.kr/news/articleViewAmp.html?idxno=225090"},
+ {id:"L12", use:"both", issue:"solution", title:"한국 AI 기본법 시행(2026.1)", summary:"2024년 12월 26일 국회를 통과해 2026년 1월 시행됐다. 고영향 AI에 투명성·안전성 의무를 두며, 디지털의료기기 AI는 고영향 AI에 해당할 수 있어 사람의 감독 등이 요구된다.", cite:"뉴시스 2024.12.26 / 법률신문 2026.8.20", url:"https://www.newsis.com/view/NISX20241226_0003011314"},
+ {id:"L13", use:"pro", issue:"solution", title:"디지털의료기기 허가 7년 만에 1→388건", summary:"식약처 디지털의료기기 누적 허가는 2017년 첫 허가 이후 2025년 7월 기준 388건, 임상시험계획 승인은 225건이다.", cite:"식품의약품안전처 발표 / 데일리팜 2025.8.19", url:"https://dailypharm.com/user/news/2997"},
+ {id:"L14", use:"con", issue:"solution", title:"AI 사고 시 책임 떠넘기기 우려", summary:"JAMA 보고서는 기존 의료과실 법체계가 AI를 고려하지 않았고, 소송 시 개발사·병원·의사가 서로 책임을 떠넘길 수 있다고 지적했다. 제조사가 사고 책임을 선언한 사례는 미국 IDx-DR 정도다.", cite:"디지털데일리 2025.10.18 (JAMA 보고서 인용)", url:"https://www.ddaily.co.kr/page/view/2025101800245383464"},
+ {id:"L15", use:"con", issue:"solution", title:"왓슨 포 온콜로지, 국내 의료진과 일치율 55.9%", summary:"국내 최초 도입 병원인 가천대 길병원은 2017년 왓슨과 의료진 판단의 일치율이 55.9%였다고 발표했다.", cite:"메디게이트뉴스 2018.2.12", url:"https://medigatenews.com/news/3426480524"},
+ {id:"L16", use:"con", issue:"solution", title:"의료법: 의료행위는 의료인만", summary:"의료법 제27조는 의료인이 아니면 의료행위를 할 수 없도록 정한다. AI가 단독으로 결정하려면 법 개정이 필요하다.", cite:"「의료법」 제27조 — 국가법령정보센터에서 조문 확인", url:"https://www.law.go.kr"},
+ {id:"L17", use:"con", issue:"cost", title:"연명의료결정법: 의사 2명이 판단", summary:"임종 과정에 있는지는 담당의사와 해당 분야 전문의 1명이 함께 판단하고, 환자·가족의 의사를 확인하도록 정한다. 생명 결정에 사람의 판단과 환자 의사를 이중으로 요구하는 구조다.", cite:"「연명의료결정법」 — 국가법령정보센터에서 조문 확인", url:"https://www.law.go.kr"}
+];
+const LIB = Object.fromEntries(LIBRARY.map(l=>[l.id,l]));
+
+/* ---------- 예시 보드 ---------- */
+function seed(){
+  const nodes = [], edges = [];
+  const C = (id, side, issue, title, reason, evidence, source) => nodes.push({id, kind:"claim", side, issue, title, reason, evidence:evidence||"", source:source||"", x:0, y:0});
+  const SRC = (lid) => { const l = LIB[lid]; const id = "s_"+lid; if (!nodes.some(n=>n.id===id)) nodes.push({id, kind:"src", lib:lid, title:l.title, reason:l.summary, source:l.cite, url:l.url, use:l.use, x:0, y:0}); return id; };
+  const E = (from, to, kind) => edges.push({id:nid("e"), from, to, kind});
+  IKEYS.forEach(k => nodes.push({id:"h_"+k, kind:"issue", issue:k, title:ISSUES[k].name, reason:ISSUES[k].desc, x:0, y:0}));
+
+  // 쟁점 1 문제
+  C("p1","pro","problem","의사 부족으로 응급 생명 판단이 늦어지고 있다","의사 수가 OECD 최하위권이고, 전문의가 없어 응급환자가 병원을 옮겨 다니는 일이 늘었다.","인구 1,000명당 임상의사 2.66명(OECD 평균 3.86명). 2024년 추석 연휴 재이송 40% 증가, 사유의 48.2%가 전문의 부재.","OECD 보건통계 2025 / 소방청 자료");
+  C("c1","con","problem","원인은 인력과 제도이지 의사의 판단이 아니다","원인이 인력 부족이라면 해결책도 인력 확충과 제도 개선이어야 한다. AI 대체는 원인과 맞지 않는 처방이다.","소방청도 재이송은 맞는 병원을 찾는 과정이라 단순 비교는 부적절하다고 밝혔다.","소방청 입장 / 뉴시스 2024.10.3");
+  C("p1a","pro","problem","의사를 키우는 데 10년이 넘게 걸린다","의대 6년과 수련 과정을 거쳐야 전문의가 되므로, 그 사이 공백을 메울 수단이 지금 필요하다.","","의사 양성 과정 — 직접 확인");
+  C("p2","pro","problem","사람의 판단 오류 자체가 큰 피해를 낸다","피로와 경험 차이 때문에 사람은 같은 상황에서도 다르게 판단하고 실수한다.","의료 과실이 미국 사망 원인 3위 수준이라는 추정이 있다.","Makary & Daniel, BMJ 2016");
+  C("c2","con","problem","그 추정은 과장 논란이 있고, AI도 크게 틀린다","BMJ 추정은 방법론 비판을 받았다. 실제 병원에 쓰인 AI도 환자 다수를 놓친 사례가 있다.","Epic 패혈증 AI가 실제 환자의 67%를 놓침.","Wong et al., JAMA Intern Med 2021");
+  C("c3","con","problem","AI ‘보조’만으로도 생명을 구할 수 있다","의료진이 최종 결정하고 AI가 경고만 해도 효과가 크므로 결정권까지 넘길 필요가 없다.","TREWS는 경고만 했는데도 패혈증 사망률이 18% 줄었다.","Nature Medicine 2022");
+  C("p3","pro","problem","보조 경고는 대부분 무시된다(경보 피로)","경고가 많으면 의료진이 습관적으로 넘겨 버려 보조형 AI의 효과가 줄어든다.","약물 경고의 약 75%가 무시되고, 그중 40%는 부적절한 무시였다.","JAMIA 연구 / Healthcare Dive 2017");
+  C("c3a","con","problem","경보 피로는 설계로 고칠 문제다","경고 기준을 다듬으면 해결되는 문제이며, 결정권을 AI에 넘길 이유는 아니다.","TREWS 경보는 약 89%가 실제로 검토됐다.","Scientific American 보도");
+  // 쟁점 2 해결 방안
+  C("p4","pro","solution","검증된 영역에서 AI는 전문의보다 정확하다","정확한 판단이 생명을 구하므로, 성능이 입증된 영역은 AI에 맡기는 것이 낫다.","유방암 판독 AI가 위음성을 최대 9.4%p, 위양성을 5.7%p 줄였다. 국내 디지털의료기기 허가도 388건에 이른다.","Nature 2020 / 식약처 2025");
+  C("c4","con","solution","연구 성능이 실제 병원에서 재현되지 않는다","개발 데이터와 실제 환자 집단이 달라 현장에서는 정확도가 떨어진다.","Epic 패혈증 AI 외부 검증에서 67% 놓침. 왓슨과 국내 의료진 일치율 55.9%.","JAMA Intern Med 2021 / 메디게이트뉴스 2018");
+  C("p4a","pro","solution","외부 검증을 통과한 AI만 허가하면 된다","‘허용’은 모든 AI가 아니라 실제 병원 데이터로 검증·인증된 AI에 한정한 허가제로 설계할 수 있다.","식약처는 이미 디지털의료기기 허가·임상 승인 제도를 운영 중이다.","식약처 / 데일리팜 2025.8.19");
+  C("c5","con","solution","영상 판독 성능은 생명 결정의 근거가 못 된다","유방암 판독 한 영역의 결과로 수술 여부나 연명의료처럼 복합적인 판단까지 맡길 수는 없다. 논리의 비약이다.","","");
+  C("c6","con","solution","AI 판단의 책임질 주체가 없다","잘못된 결정이 났을 때 책임이 불분명하면 환자가 보호받지 못한다.","의료법 제27조는 의료행위를 의료인으로 한정. 기존 법체계는 AI를 고려하지 않아 개발사·병원·의사가 책임을 떠넘길 수 있다.","의료법 / 디지털데일리 2025.10.18");
+  C("p6","pro","solution","책임·보험 제도를 새로 만들면 된다","제조사 책임과 배상 보험을 법으로 정하면 공백을 메울 수 있다. 법은 기술에 맞춰 바뀌어 왔다.","미국 IDx-DR 제조사는 사고 시 책임지겠다고 선언했다.","디지털데일리 2025.10.18");
+  C("c6a","con","solution","생명은 사후 보상으로 되돌릴 수 없다","책임 제도가 생겨도 잘못된 생명 결정은 회복되지 않으므로 사람의 사전 판단이 필요하다.","","");
+  C("c7","con","solution","국내외 규제는 ‘사람의 감독’을 요구한다","EU와 한국 모두 의료 AI를 고위험으로 보고 사람의 감독을 의무로 두고 있어, AI 단독 결정은 규제 흐름과 맞지 않는다.","EU AI Act 고위험 규정(2028.8 적용), 한국 AI 기본법(2026.1 시행).","법률신문 2026.8.20 / 뉴시스 2024.12.26");
+  C("p7","pro","solution","규제는 금지가 아니라 조건이다","규제는 안전장치를 갖추라는 조건일 뿐이다. 감시·기록·사후 점검 조건을 갖추면 허용할 수 있다.","","");
+  // 쟁점 3 이익 및 비용
+  C("p8","pro","cost","빠른 판단으로 더 많은 생명을 구한다","AI는 지치지 않아 야간·주말이나 의료 취약 지역에서도 같은 수준으로 빠르게 판단한다.","TREWS 적용 시 패혈증 치료가 평균 약 2시간 빨라졌다.","Nature Medicine 2022");
+  C("c8","con","cost","알고리즘 편향으로 특정 환자가 불이익을 받는다","학습 데이터가 치우치면 AI가 일부 집단의 위험을 낮게 평가해 치료 기회를 빼앗는다.","미국 알고리즘이 의료비를 지표로 써서 흑인 환자를 더 건강하다고 판단했다.","Obermeyer et al., Science 2019");
+  C("p8a","pro","cost","AI의 편향은 찾아내고 고칠 수 있다","사람 의사의 편향은 잘 드러나지 않지만, AI의 편향은 데이터로 확인하고 수정할 수 있다.","같은 연구에서 지표를 바꾸자 편향이 해소됐다.","Obermeyer et al., Science 2019");
+  C("c9","con","cost","AI를 믿다가 의료진 판단력이 무너진다","AI가 틀려도 사람이 따라가는 자동화 편향이 생겨, 오류를 잡을 마지막 안전장치가 사라진다.","AI가 틀리자 경험 많은 의사의 정확도도 82%→45.5%로 떨어졌다.","Radiology 2023 / RSNA");
+  C("p9","pro","cost","오히려 ‘반쯤 맡기는’ 구조가 가장 위험하다는 증거다","사람이 AI에 흔들리는 혼합 판단이 불안정하므로, 검증된 영역은 책임을 분명히 하고 AI에 맡기는 편이 일관적이다.","같은 Radiology 2023 연구를 다르게 해석","Radiology 2023");
+  C("c10","con","cost","환자의 자기결정권과 인간적 소통이 사라진다","생명 결정은 환자·가족의 가치관을 반영해야 하는데, AI는 그 대화를 대신할 수 없다.","WHO는 의료 결정의 통제권이 사람에게 있어야 한다고 밝혔다. 연명의료결정법도 의사 2명의 판단과 환자 의사 확인을 요구한다.","WHO 2021 / 연명의료결정법");
+  C("p10","pro","cost","설명 의무와 동의 절차를 두면 된다","AI가 결정하더라도 결과와 이유를 환자에게 설명하고 동의를 받게 하면 자기결정권은 지켜진다.","","");
+  C("c10a","con","cost","블랙박스 AI는 이유를 설명하지 못한다","딥러닝은 판단 근거를 사람이 이해할 수 있게 설명하기 어려워 실질적인 설명이 불가능하다.","","");
+  nodes.push({id:"m1", kind:"memo", title:"‘대신’의 범위부터 합의하기", reason:"찬성 측 첫 입론에서 ‘의료진 승인 없이 AI 결정이 실행되는 것’으로 정의할지, ‘검증된 일부 영역’으로 좁힐지 정해야 반대 신문에서 흔들리지 않는다.", x:0, y:0});
+
+  [["p1","c1"],["c1","p1a"],["p2","c2"],["c3","p3"],["p3","c3a"],["p4","c4"],["c4","p4a"],["p4","c5"],["c6","p6"],["p6","c6a"],["c7","p7"],["p8","c8"],["c8","p8a"],["c9","p9"],["c10","p10"],["p10","c10a"]].forEach(([t,f]) => E(f,t,"rebut"));
+  ["p1","p2","c3"].forEach(id=>E("h_problem",id,"link"));
+  ["p4","c6","c7"].forEach(id=>E("h_solution",id,"link"));
+  ["p8","c9","c10"].forEach(id=>E("h_cost",id,"link"));
+  const S2 = (lid, ids) => { const s = SRC(lid); ids.forEach(id=>E(s,id,"support")); };
+  S2("L1",["p1"]); S2("L2",["p1","c1"]); S2("L3",["p2"]); S2("L9",["p3"]); S2("L4",["c3","c3a","p8"]);
+  S2("L5",["p4"]); S2("L13",["p4a"]); S2("L6",["c4","c2"]); S2("L15",["c4"]); S2("L16",["c6"]); S2("L14",["c6","p6"]); S2("L11",["c7"]); S2("L12",["c7"]);
+  S2("L7",["c8","p8a"]); S2("L8",["c9","p9"]); S2("L10",["c10"]); S2("L17",["c10"]);
+
+  const st = {
+    topic:"AI가 의료진의 생명 관련 의사결정을 대신하는 것을 허용해야 한다",
+    terms:[
+      {term:"AI(의료 인공지능)", def:"진료 기록·영상·생체 신호 등 의료 데이터를 학습해 진단이나 치료 판단을 내리는 소프트웨어. 임상 의사결정 지원 시스템(CDSS)을 포함한다."},
+      {term:"생명 관련 의사결정", def:"응급 환자 중증도 분류, 수술·치료 여부, 연명의료 중단처럼 환자의 생사에 직접 이어지는 판단."},
+      {term:"대신하는 것", def:"의료진의 최종 승인 없이 AI의 판단이 결정으로 실행되는 것. 의료진이 참고만 하는 ‘보조’와 구분한다."}
+    ],
+    background:[
+      "의사 수가 OECD 최하위권이고, 전문의 부재로 응급환자 재이송이 늘었다.",
+      "국내 디지털의료기기 허가가 2017년 1건에서 2025년 388건으로 늘 만큼 의료 AI가 빠르게 도입되고 있다.",
+      "AI 판단에 대한 책임 주체가 법적으로 정해지지 않았다.",
+      "2026년 한국 AI 기본법 시행, EU AI Act 등 의료 AI를 고위험으로 규제하는 흐름이 생겼다."
+    ],
+    nodes, edges, cx:[
+      {side:"con", confirm:"방금 AI가 전문의보다 정확하다는 근거로 2020년 Nature 유방암 판독 연구를 드셨는데 맞습니까?", verify:"그 연구는 영상 판독 한 영역의 결과인데, 수술 여부나 연명의료 같은 생명 판단 전체를 AI에 맡길 근거가 될 수 있습니까?"},
+      {side:"con", confirm:"외부 검증을 통과한 AI만 허가하면 된다고 하셨죠?", verify:"미시간대 독립 검증에서 널리 쓰이던 패혈증 AI가 환자의 67%를 놓쳤는데, 이미 쓰이던 AI도 검증에 실패했다면 허가제만으로 안전을 보장할 수 있습니까?"},
+      {side:"con", confirm:"TREWS 연구를 AI의 효과 근거로 드셨는데 맞습니까?", verify:"그 연구에서 최종 결정은 의료진이 했는데, 이것이 AI가 결정을 ‘대신’해야 한다는 근거가 될 수 있습니까?"},
+      {side:"pro", confirm:"인력 확충이 근본 해결책이라고 말씀하셨는데 맞습니까?", verify:"전문의 한 명을 키우는 데 10년 이상 걸리는데, 그동안의 응급 공백을 해결할 다른 방안이 있습니까?"},
+      {side:"pro", confirm:"AI 편향의 근거로 2019년 Science의 Obermeyer 연구를 드셨죠?", verify:"같은 연구에서 지표를 바꾸자 편향이 해소됐다고 했는데, 그래도 편향이 고칠 수 없는 문제라고 할 수 있습니까?"},
+      {side:"pro", confirm:"AI 보조 경고만으로 충분하다고 하셨는데 맞습니까?", verify:"약물 경고의 약 75%가 무시된다는 연구가 있는데, 무시되는 경고가 생명을 지킬 수 있습니까?"}
+    ],
+    speeches:{}, view:{x:40, y:40, k:.8}, imported:[]
+  };
+  layout(st);
+  return st;
+}
+
+/* ---------- 상태 ---------- */
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)); } catch(e) { S = null; }
+if (!S || !Array.isArray(S.nodes)) S = seed();
+let saveT; function save(){ clearTimeout(saveT); saveT = setTimeout(()=>{ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }, 200); }
+const byId = id => S.nodes.find(n=>n.id===id);
+let selected = null; // {type:'node'|'edge', id}
+let mode = "board";
+
+/* ---------- 그래프 계산 ---------- */
+const outRebut = id => S.edges.filter(e=>e.kind==="rebut" && e.from===id).map(e=>byId(e.to)).filter(Boolean);
+const inRebut = id => S.edges.filter(e=>e.kind==="rebut" && e.to===id).map(e=>byId(e.from)).filter(Boolean);
+const supports = id => S.edges.filter(e=>e.kind==="support" && e.to===id).map(e=>byId(e.from)).filter(n=>n && n.kind==="src");
+function depth(n, seen=new Set()){ if (seen.has(n.id)) return 0; seen.add(n.id); const t = outRebut(n.id); return t.length ? 1 + depth(t[0], seen) : 0; }
+const roleName = n => { const d = depth(n); return sideName(n.side) + " " + (d===0 ? "주장" : d===1 ? "반박" : "재반박"); };
+
+/* 자동 정렬: 쟁점별 띠, 주장→반박→재반박은 오른쪽으로, 근거 카드는 끝 열 */
+function layout(st){
+  const g = st || S;
+  const find = id => g.nodes.find(n=>n.id===id);
+  const kids = id => g.edges.filter(e=>e.kind==="rebut" && e.to===id).map(e=>find(e.from)).filter(Boolean);
+  const isRoot = n => n.kind==="claim" && !g.edges.some(e=>e.kind==="rebut" && e.from===n.id);
+  const COLW = 290, ROWH = 150, BAND_GAP = 90;
+  let y0 = 0; const placed = new Set();
+  const bands = [...IKEYS.map(k=>({k, roots:g.nodes.filter(n=>isRoot(n) && n.issue===k)})), {k:null, roots:g.nodes.filter(n=>isRoot(n) && !IKEYS.includes(n.issue))}];
+  for (const b of bands){
+    let row = 0, maxDepth = 0; const bandNodes = [];
+    const place = (n, d) => { if (placed.has(n.id)) return; placed.add(n.id); n.x = 240 + d*COLW; n.y = y0 + row*ROWH; bandNodes.push(n); maxDepth = Math.max(maxDepth,d);
+      const ks = kids(n.id); if (!ks.length) { row++; return; } ks.forEach(k => place(k, d+1)); };
+    b.roots.forEach(r => place(r, 0));
+    if (b.k === null && !b.roots.length) continue;
+    // 근거 카드
+    const srcs = g.nodes.filter(n=>n.kind==="src" && !placed.has(n.id) && g.edges.some(e=>e.kind==="support" && e.from===n.id && bandNodes.some(x=>x.id===e.to)));
+    const sx = 240 + (maxDepth+1)*COLW + 40;
+    srcs.forEach((s,i) => { placed.add(s.id); s.x = sx + (i%2)*240; s.y = y0 + Math.floor(i/2)*ROWH; });
+    const rows = Math.max(row, Math.ceil(srcs.length/2), 1);
+    if (b.k){ const h = find("h_"+b.k); if (h){ placed.add(h.id); h.x = 0; h.y = y0 + (rows-1)*ROWH/2; } }
+    y0 += rows*ROWH + BAND_GAP;
+  }
+  // 나머지(메모, 연결 안 된 근거)
+  let i = 0; g.nodes.filter(n=>!placed.has(n.id)).forEach(n => { n.x = 240 + (i%4)*COLW; n.y = y0 + Math.floor(i/4)*ROWH; i++; });
+}
+
+/* ---------- 보드 렌더 ---------- */
+const board = $("#board"), world = $("#world"), nodesEl = $("#nodes"), edgeLayer = $("#edgeLayer");
+function applyView(){ const v = S.view; world.style.transform = `translate(${v.x}px,${v.y}px) scale(${v.k})`; board.style.backgroundPosition = `${v.x}px ${v.y}px`; board.style.backgroundSize = `${24*v.k}px ${24*v.k}px`; $("#zv").textContent = Math.round(v.k*100)+"%"; }
+function nodeHTML(n){
+  if (n.kind==="issue") return `<div class="nd-kind" style="color:inherit;opacity:.7">${ISSUES[n.issue].no}</div><div class="nd-t">${esc(n.title)}</div><div class="nd-r">${esc(n.reason)}</div>`;
+  if (n.kind==="src") return `<div class="nd-kind">근거 자료 ${n.use==="pro"?"· 찬성용":n.use==="con"?"· 반대용":""}</div><div class="nd-t">${esc(n.title)}</div><div class="nd-r">${esc(n.reason)}</div><div class="nd-meta"><span class="pill">${esc((n.source||"").split("/")[0].trim()).slice(0,34)||"출처 없음"}</span></div><span class="port" data-port title="끌어서 주장에 연결">●</span>`;
+  if (n.kind==="memo") return `<div class="nd-kind">메모</div><div class="nd-t">${esc(n.title)}</div>${n.reason?`<div class="nd-r">${esc(n.reason)}</div>`:""}<span class="port" data-port title="끌어서 연결">●</span>`;
+  const hasEv = (n.evidence||"").trim() || supports(n.id).length;
+  const rb = inRebut(n.id).length;
+  return `<div class="nd-kind">${roleName(n)}${n.issue?` · ${ISSUES[n.issue].name}`:""}</div><div class="nd-t">${esc(n.title)}</div>${n.reason?`<div class="nd-r">${esc(n.reason)}</div>`:""}<div class="nd-meta">${hasEv?'<span class="pill ok">근거 있음</span>':'<span class="pill need">근거 필요</span>'}${rb?`<span class="pill">받은 반박 ${rb}</span>`:""}${n.fromSrc?'<span class="pill new">자료에서</span>':""}</div><span class="port" data-port title="끌어서 다른 카드에 연결">●</span>`;
+}
+function nodeClass(n){ return "nd " + n.kind + (n.side?" "+n.side:"") + (selected?.type==="node" && selected.id===n.id ? " sel":""); }
+function renderBoard(){
+  nodesEl.innerHTML = "";
+  for (const n of S.nodes){
+    const el = document.createElement("div");
+    el.className = nodeClass(n); el.dataset.id = n.id; el.tabIndex = 0;
+    el.style.left = n.x+"px"; el.style.top = n.y+"px";
+    el.innerHTML = nodeHTML(n);
+    el.setAttribute("role","button"); el.setAttribute("aria-label", (n.kind==="claim"?roleName(n):n.kind==="src"?"근거 자료":n.kind==="issue"?"쟁점":"메모")+": "+n.title);
+    nodesEl.appendChild(el);
+  }
+  drawEdges();
+}
+function refreshNode(id){ const n = byId(id), el = nodesEl.querySelector(`[data-id="${id}"]`); if (!n || !el) return; el.className = nodeClass(n); el.innerHTML = nodeHTML(n); }
+function refreshAllNodeText(){ S.nodes.forEach(n=>refreshNode(n.id)); drawEdges(); }
+function rectOf(id){ const n = byId(id), el = nodesEl.querySelector(`[data-id="${id}"]`); if (!n || !el) return null; return {x:n.x, y:n.y, w:el.offsetWidth, h:el.offsetHeight}; }
+function curve(a, b){
+  const ac = {x:a.x+a.w/2, y:a.y+a.h/2}, bc = {x:b.x+b.w/2, y:b.y+b.h/2};
+  const dx = bc.x-ac.x, dy = bc.y-ac.y; let p1, p2, c1, c2;
+  if (Math.abs(dx) >= Math.abs(dy)*0.7){
+    const s = dx>0?1:-1; p1 = {x: s>0? a.x+a.w : a.x, y: ac.y}; p2 = {x: s>0? b.x : b.x+b.w, y: bc.y};
+    const o = Math.max(40, Math.abs(p2.x-p1.x)/2); c1 = {x:p1.x+s*o, y:p1.y}; c2 = {x:p2.x-s*o, y:p2.y};
+  } else {
+    const s = dy>0?1:-1; p1 = {x: ac.x, y: s>0? a.y+a.h : a.y}; p2 = {x: bc.x, y: s>0? b.y : b.y+b.h};
+    const o = Math.max(40, Math.abs(p2.y-p1.y)/2); c1 = {x:p1.x, y:p1.y+s*o}; c2 = {x:p2.x, y:p2.y-s*o};
+  }
+  const m = t => { const u=1-t; return {x:u*u*u*p1.x+3*u*u*t*c1.x+3*u*t*t*c2.x+t*t*t*p2.x, y:u*u*u*p1.y+3*u*u*t*c1.y+3*u*t*t*c2.y+t*t*t*p2.y}; };
+  return {d:`M${p1.x},${p1.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${p2.x},${p2.y}`, mid:m(.5)};
+}
+function edgeStyle(e){
+  const f = byId(e.from);
+  if (e.kind==="rebut"){ const s = f?.side==="con"?"con":"pro"; return {stroke:`var(--${s})`, marker:`m-${s}`, dash:"", label:"반박", lc:`var(--${s})`}; }
+  if (e.kind==="support") return {stroke:"var(--src)", marker:"m-sup", dash:"2 4", label:"근거", lc:"var(--src)"};
+  return {stroke:"var(--muted)", marker:"m-link", dash:"6 5", label:"", lc:"var(--muted)"};
+}
+let edgeRAF;
+function drawEdges(){ cancelAnimationFrame(edgeRAF); edgeRAF = requestAnimationFrame(drawEdgesNow); }
+function drawEdgesNow(){
+  let h = "";
+  for (const e of S.edges){
+    const a = rectOf(e.from), b = rectOf(e.to); if (!a || !b) continue;
+    const {d, mid} = curve(a, b), st = edgeStyle(e);
+    const sel = selected?.type==="edge" && selected.id===e.id;
+    h += `<path class="e" d="${d}" style="stroke:${st.stroke};${st.dash?`stroke-dasharray:${st.dash};`:""}${sel?"stroke-width:4;":""}" marker-end="url(#${st.marker})"/>`;
+    if (st.label) h += `<text class="lbl" x="${mid.x}" y="${mid.y+4}" text-anchor="middle" style="fill:${st.lc}">${st.label}</text>`;
+    h += `<path class="hit" data-edge="${e.id}" d="${d}"/>`;
+  }
+  edgeLayer.innerHTML = h;
+}
+
+/* ---------- 포인터: 이동 / 카드 끌기 / 연결 ---------- */
+const toWorld = (cx, cy) => { const r = board.getBoundingClientRect(), v = S.view; return {x:(cx-r.left-v.x)/v.k, y:(cy-r.top-v.y)/v.k}; };
+let drag = null;
+board.addEventListener("pointerdown", e => {
+  if (e.button !== 0) return;
+  const port = e.target.closest("[data-port]");
+  const nodeEl = e.target.closest(".nd");
+  const hit = e.target.closest("[data-edge]");
+  if (port && nodeEl){
+    e.preventDefault(); const p = toWorld(e.clientX,e.clientY);
+    drag = {type:"link", from:nodeEl.dataset.id, start:p}; board.setPointerCapture(e.pointerId); return;
+  }
+  if (nodeEl){
+    const n = byId(nodeEl.dataset.id); const p = toWorld(e.clientX,e.clientY);
+    drag = {type:"node", id:n.id, dx:p.x-n.x, dy:p.y-n.y, sx:e.clientX, sy:e.clientY, moved:false, el:nodeEl};
+    board.setPointerCapture(e.pointerId); return;
+  }
+  if (hit){ select({type:"edge", id:hit.dataset.edge}); return; }
+  drag = {type:"pan", sx:e.clientX, sy:e.clientY, vx:S.view.x, vy:S.view.y, moved:false};
+  board.classList.add("panning"); board.setPointerCapture(e.pointerId);
+});
+let dropEl = null;
+board.addEventListener("pointermove", e => {
+  if (!drag) return;
+  if (drag.type==="pan"){ const dx=e.clientX-drag.sx, dy=e.clientY-drag.sy; if (Math.abs(dx)+Math.abs(dy)>3) drag.moved=true; S.view.x = drag.vx+dx; S.view.y = drag.vy+dy; applyView(); }
+  else if (drag.type==="node"){
+    if (!drag.moved && Math.abs(e.clientX-drag.sx)+Math.abs(e.clientY-drag.sy) < 5) return;
+    drag.moved = true; const p = toWorld(e.clientX,e.clientY), n = byId(drag.id);
+    n.x = Math.round(p.x-drag.dx); n.y = Math.round(p.y-drag.dy);
+    drag.el.style.left = n.x+"px"; drag.el.style.top = n.y+"px"; drawEdges();
+  } else if (drag.type==="link"){
+    const a = rectOf(drag.from), p = toWorld(e.clientX,e.clientY);
+    $("#tempEdge").setAttribute("d", curve(a, {x:p.x, y:p.y, w:1, h:1}).d);
+    const t = document.elementFromPoint(e.clientX,e.clientY)?.closest(".nd");
+    if (dropEl && dropEl!==t) dropEl.classList.remove("drop");
+    dropEl = (t && t.dataset.id!==drag.from) ? t : null; dropEl?.classList.add("drop");
+  }
+});
+function endDrag(e){
+  if (!drag) return;
+  const d = drag; drag = null; board.classList.remove("panning");
+  if (d.type==="pan"){ if (!d.moved) select(null); save(); }
+  else if (d.type==="node"){ if (d.moved) save(); else select({type:"node", id:d.id}); }
+  else if (d.type==="link"){
+    $("#tempEdge").setAttribute("d",""); dropEl?.classList.remove("drop");
+    const target = dropEl?.dataset.id; dropEl = null;
+    if (target) connect(d.from, target);
+  }
+}
+board.addEventListener("pointerup", endDrag);
+board.addEventListener("pointercancel", endDrag);
+board.addEventListener("wheel", e => {
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey) zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY*0.01));
+  else { S.view.x -= e.deltaX; S.view.y -= e.deltaY; applyView(); save(); }
+}, {passive:false});
+board.addEventListener("keydown", e => {
+  const el = e.target.closest?.(".nd"); if (el && (e.key==="Enter"||e.key===" ")){ e.preventDefault(); select({type:"node", id:el.dataset.id}); }
+});
+function zoomAt(cx, cy, f){
+  const r = board.getBoundingClientRect(), v = S.view;
+  const k = Math.min(2, Math.max(.25, v.k*f)); const wx = (cx-r.left-v.x)/v.k, wy = (cy-r.top-v.y)/v.k;
+  v.k = k; v.x = cx-r.left-wx*k; v.y = cy-r.top-wy*k; applyView(); save();
+}
+$("#zIn").onclick = () => { const r = board.getBoundingClientRect(); zoomAt(r.left+r.width/2, r.top+r.height/2, 1.2); };
+$("#zOut").onclick = () => { const r = board.getBoundingClientRect(); zoomAt(r.left+r.width/2, r.top+r.height/2, 1/1.2); };
+function fit(){
+  if (!S.nodes.length) return;
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  S.nodes.forEach(n=>{ const r = rectOf(n.id) || {x:n.x,y:n.y,w:240,h:120}; x0=Math.min(x0,r.x); y0=Math.min(y0,r.y); x1=Math.max(x1,r.x+r.w); y1=Math.max(y1,r.y+r.h); });
+  const b = board.getBoundingClientRect(), pad = 60;
+  const k = Math.min(1.1, Math.max(.25, Math.min((b.width-pad*2)/(x1-x0), (b.height-pad*2-60)/(y1-y0))));
+  S.view = {k, x: (b.width-(x1-x0)*k)/2 - x0*k, y: pad+40 - y0*k}; applyView(); save();
+}
+$("#zFit").onclick = fit;
+let layoutArmed = 0;
+$("#layoutBtn").onclick = (e) => {
+  const prev = S.nodes.map(n=>({id:n.id,x:n.x,y:n.y}));
+  layout(); renderBoard(); requestAnimationFrame(fit); save();
+  toast("쟁점별로 다시 정렬했습니다.", "되돌리기", () => { prev.forEach(p=>{ const n=byId(p.id); if(n){n.x=p.x;n.y=p.y;} }); renderBoard(); save(); });
+};
+function focusNode(id){
+  const n = byId(id); if (!n) return;
+  if (mode==="sum") setMode("split");
+  requestAnimationFrame(()=>{
+    const r = rectOf(id), b = board.getBoundingClientRect(), v = S.view;
+    if (v.k < .7) v.k = .85;
+    v.x = b.width/2 - (r.x + r.w/2)*v.k; v.y = b.height/2 - (r.y + r.h/2)*v.k; applyView(); save();
+    select({type:"node", id});
+    const el = nodesEl.querySelector(`[data-id="${id}"]`); el?.classList.remove("flash"); void el?.offsetWidth; el?.classList.add("flash");
+  });
+}
+
+/* ---------- 연결 ---------- */
+function connect(from, to){
+  const a = byId(from), b = byId(to);
+  if (!a || !b || from===to) return;
+  if (S.edges.some(e=>e.from===from && e.to===to)) { toast("이미 연결되어 있습니다."); return; }
+  let kind = "link";
+  if (a.kind==="src" && b.kind!=="src") kind = "support";
+  else if (b.kind==="src" && a.kind!=="src") { const e = {id:nid("e"), from:to, to:from, kind:"support"}; S.edges.push(e); afterConnect(e); return; }
+  else if (a.kind==="claim" && b.kind==="claim" && a.side!==b.side) kind = "rebut";
+  else if (b.kind==="issue" && a.kind==="claim"){ a.issue = b.issue; const e = {id:nid("e"), from:to, to:from, kind:"link"}; S.edges.push(e); afterConnect(e); return; }
+  else if (a.kind==="issue" && b.kind==="claim"){ b.issue = a.issue; }
+  const e = {id:nid("e"), from, to, kind};
+  if (kind==="rebut" && !b.issue && a.issue) b.issue = a.issue;
+  if (kind==="rebut" && !a.issue && b.issue) a.issue = b.issue;
+  S.edges.push(e); afterConnect(e);
+}
+function afterConnect(e){
+  save(); refreshAllNodeText(); select({type:"edge", id:e.id});
+  const lbl = {rebut:"반박", support:"근거", link:"연결"}[e.kind];
+  toast(`‘${lbl}’ 선으로 이었습니다. 오른쪽에서 종류를 바꿀 수 있어요.`);
+  queueSum();
+}
+
+/* ---------- 카드 추가 ---------- */
+function viewCenter(){ const b = board.getBoundingClientRect(); return toWorld(b.left+b.width/2, b.top+b.height/2); }
+function addNode(kind, opts={}){
+  const c = opts.at || viewCenter();
+  const n = {id:nid(), kind: kind==="pro"||kind==="con" ? "claim" : kind, side: kind==="pro"||kind==="con" ? kind : undefined,
+    issue: opts.issue, title: opts.title || (kind==="src"?"새 근거 자료":kind==="memo"?"새 메모":"새 주장"), reason: opts.reason||"", evidence: opts.evidence||"", source: opts.source||"", url: opts.url||"", use: opts.use, lib: opts.lib,
+    x: Math.round(c.x - 118 + (opts.jitter? (Math.random()*60-30):0)), y: Math.round(c.y - 50 + (opts.jitter?(Math.random()*60-30):0)), fromSrc: opts.fromSrc};
+  S.nodes.push(n); return n;
+}
+document.querySelectorAll("[data-add]").forEach(b => b.onclick = () => {
+  const n = addNode(b.dataset.add, {jitter:true}); save(); renderBoard(); select({type:"node", id:n.id}); focusTitle();
+});
+function focusTitle(){ setTimeout(()=>{ const t = $("#f-title"); if (t){ t.focus(); t.select(); } }, 30); }
+
+/* ---------- 편집 패널 ---------- */
+const panel = $("#panel");
+function select(s){
+  const prev = selected; selected = s;
+  if (prev?.type==="node") refreshNode(prev.id);
+  if (s?.type==="node") refreshNode(s.id);
+  drawEdges(); renderPanel();
+}
+function renderPanel(){
+  if (!selected){ panel.hidden = true; return; }
+  $("#lib").hidden = true;
+  panel.hidden = false;
+  if (selected.type==="edge") return renderEdgePanel();
+  const n = byId(selected.id); if (!n){ panel.hidden = true; return; }
+  const conns = S.edges.filter(e=>e.from===n.id || e.to===n.id);
+  const connHTML = conns.length ? `<div class="flabel">연결 ${conns.length}</div><div class="conn">${conns.map(e=>{ const o = byId(e.from===n.id?e.to:e.from); const dir = e.kind==="rebut" ? (e.from===n.id?"→ 반박함: ":"← 반박받음: ") : e.kind==="support" ? (e.from===n.id?"→ 뒷받침: ":"← 근거: ") : "— "; return `<div><span>${dir}${esc(o?.title||"")}</span><span class="row"><button class="btn ghost small" data-go="${o?.id}">보기</button><button class="btn ghost small" data-unlink="${e.id}" aria-label="연결 끊기">끊기</button></span></div>`; }).join("")}</div>` : "";
+  let body = "";
+  if (n.kind==="issue"){
+    body = `<div class="head"><h3>${ISSUES[n.issue].no} ${esc(n.title)}</h3><button class="btn ghost" data-close>닫기</button></div>
+      <p class="muted small" style="margin:0">${esc(n.reason)}. 주장 카드를 이 쟁점 카드에 연결하면 그 쟁점으로 분류됩니다.</p>${connHTML}`;
+  } else if (n.kind==="src"){
+    body = `<div class="head"><h3>근거 자료</h3><button class="btn ghost" data-close>닫기</button></div>
+      <div class="field"><label for="f-title">자료 제목</label><input type="text" id="f-title" value="${esc(n.title)}"></div>
+      <div class="field"><label for="f-reason">핵심 내용(수치·사례)</label><textarea id="f-reason">${esc(n.reason)}</textarea></div>
+      <div class="field"><label for="f-source">출처</label><input type="text" id="f-source" value="${esc(n.source)}" placeholder="기관·저자, 연도, 매체"></div>
+      <div class="field"><label for="f-url">링크</label><input type="url" id="f-url" value="${esc(n.url||"")}" placeholder="https://"></div>
+      ${n.url?`<a class="small" href="${esc(n.url)}" target="_blank" rel="noopener" style="color:var(--src)">원문 열기</a>`:""}
+      <div class="field"><label for="f-use">쓰임</label><select id="f-use"><option value="both">양쪽</option><option value="pro">찬성용</option><option value="con">반대용</option></select></div>
+      <p class="small muted" style="margin:0">오른쪽 ● 점을 끌어 주장 카드에 놓으면 ‘근거’로 연결됩니다.</p>
+      ${connHTML}`;
+  } else if (n.kind==="memo"){
+    body = `<div class="head"><h3>메모</h3><button class="btn ghost" data-close>닫기</button></div>
+      <div class="field"><label for="f-title">제목</label><input type="text" id="f-title" value="${esc(n.title)}"></div>
+      <div class="field"><label for="f-reason">내용</label><textarea id="f-reason">${esc(n.reason)}</textarea></div>
+      <div class="row"><button class="btn pro" data-tocl="pro">찬성 주장으로 바꾸기</button><button class="btn con" data-tocl="con">반대 주장으로</button></div>${connHTML}`;
+  } else {
+    const opp = other(n.side);
+    body = `<div class="head"><h3><span class="tag ${n.side}">${roleName(n)}</span></h3><button class="btn ghost" data-close>닫기</button></div>
+      <div class="row">
+        <div class="seg" role="group" aria-label="입장"><button aria-pressed="${n.side==="pro"}" data-side="pro">찬성</button><button aria-pressed="${n.side==="con"}" data-side="con">반대</button></div>
+        <select id="f-issue" aria-label="쟁점" style="width:auto;flex:1"><option value="">쟁점 선택</option>${IKEYS.map(k=>`<option value="${k}">${ISSUES[k].no} ${ISSUES[k].name}</option>`).join("")}</select>
+      </div>
+      <div class="field"><label for="f-title">주장</label><input type="text" id="f-title" value="${esc(n.title)}"></div>
+      <div class="field"><label for="f-reason">이유</label><textarea id="f-reason">${esc(n.reason)}</textarea></div>
+      <div class="field"><label for="f-evidence">근거 자료</label><textarea id="f-evidence" placeholder="통계·연구·사례 (근거 카드를 연결해도 됩니다)">${esc(n.evidence)}</textarea></div>
+      <div class="field"><label for="f-source">출처</label><input type="text" id="f-source" value="${esc(n.source)}"></div>
+      <div class="row">
+        <button class="btn ${opp}" id="addReb">+ ${sideName(opp)} 반박 잇기</button>
+        <button class="btn src" id="addEv">+ 근거 카드</button>
+      </div>
+      <button class="btn" id="aiReb">${sideName(opp)} 측 반박 자동 생성</button>
+      <div class="status" id="pStatus"></div>
+      ${connHTML}`;
+  }
+  body += n.kind!=="issue" ? `<hr class="sep"><div class="row" style="justify-content:space-between"><button class="btn ghost small" data-gosum>정리 창에서 보기</button><button class="btn ghost danger small" id="delNode">카드 삭제</button></div>` : "";
+  panel.innerHTML = body;
+  panel.querySelector("[data-close]").onclick = () => select(null);
+  const bind = (id, key) => { const el = $("#"+id); if (el) el.addEventListener("input", () => { n[key] = el.value; save(); refreshNode(n.id); drawEdges(); queueSum(); }); };
+  bind("f-title","title"); bind("f-reason","reason"); bind("f-evidence","evidence"); bind("f-source","source"); bind("f-url","url");
+  const fu = $("#f-use"); if (fu){ fu.value = n.use || "both"; fu.onchange = () => { n.use = fu.value; save(); refreshNode(n.id); }; }
+  const fi = $("#f-issue"); if (fi){ fi.value = n.issue || ""; fi.onchange = () => { n.issue = fi.value || undefined; save(); refreshNode(n.id); queueSum(); }; }
+  panel.querySelectorAll("[data-side]").forEach(b => b.onclick = () => { n.side = b.dataset.side; save(); refreshAllNodeText(); renderPanel(); queueSum(); });
+  panel.querySelectorAll("[data-tocl]").forEach(b => b.onclick = () => { n.kind = "claim"; n.side = b.dataset.tocl; n.evidence = n.evidence||""; n.source = n.source||""; save(); renderBoard(); renderPanel(); queueSum(); });
+  panel.querySelectorAll("[data-go]").forEach(b => b.onclick = () => focusNode(b.dataset.go));
+  panel.querySelectorAll("[data-unlink]").forEach(b => b.onclick = () => { S.edges = S.edges.filter(e=>e.id!==b.dataset.unlink); save(); refreshAllNodeText(); renderPanel(); queueSum(); });
+  const ar = $("#addReb"); if (ar) ar.onclick = () => {
+    const c = addNode(other(n.side), {at:{x:n.x+118+300, y:n.y+50+inRebut(n.id).length*130}, issue:n.issue, title:"새 반박"});
+    S.edges.push({id:nid("e"), from:c.id, to:n.id, kind:"rebut"}); save(); renderBoard(); select({type:"node", id:c.id}); focusTitle(); queueSum();
+  };
+  const ae = $("#addEv"); if (ae) ae.onclick = () => {
+    const c = addNode("src", {at:{x:n.x+118, y:n.y+50+170}, use:n.side});
+    S.edges.push({id:nid("e"), from:c.id, to:n.id, kind:"support"}); save(); renderBoard(); select({type:"node", id:c.id}); focusTitle(); queueSum();
+  };
+  const ai = $("#aiReb"); if (ai) ai.onclick = () => aiRebut(n);
+  const gs = panel.querySelector("[data-gosum]"); if (gs) gs.onclick = () => { setMode("split"); setTimeout(()=>{ const t = document.querySelector(`[data-sumid="${n.id}"]`); t?.scrollIntoView({block:"center", behavior:"smooth"}); }, 60); };
+  const dn = $("#delNode"); if (dn){ let armed=false; dn.onclick = () => {
+    if (!armed){ armed = true; dn.textContent = "한 번 더 누르면 삭제"; return; }
+    const keepN = {...n}, keepE = S.edges.filter(e=>e.from===n.id||e.to===n.id);
+    S.nodes = S.nodes.filter(x=>x.id!==n.id); S.edges = S.edges.filter(e=>e.from!==n.id && e.to!==n.id);
+    selected = null; save(); renderBoard(); renderPanel(); queueSum();
+    toast("카드를 삭제했습니다.", "되돌리기", () => { S.nodes.push(keepN); S.edges.push(...keepE); save(); renderBoard(); queueSum(); });
+  }; }
+}
+function renderEdgePanel(){
+  const e = S.edges.find(x=>x.id===selected.id); if (!e){ panel.hidden = true; return; }
+  const a = byId(e.from), b = byId(e.to);
+  panel.innerHTML = `<div class="head"><h3>연결선</h3><button class="btn ghost" data-close>닫기</button></div>
+    <p class="small" style="margin:0"><b>${esc(a?.title)}</b><br><span class="muted">→</span> <b>${esc(b?.title)}</b></p>
+    <div class="field"><label for="f-ek">연결 종류</label><select id="f-ek"><option value="rebut">반박 (앞 카드가 뒤 카드를 반박)</option><option value="support">근거 (앞 카드가 뒤 카드를 뒷받침)</option><option value="link">연결 (관련 있음)</option></select></div>
+    <div class="row"><button class="btn" id="swapE">방향 바꾸기</button><button class="btn danger" id="delE">연결 끊기</button></div>
+    <p class="small muted" style="margin:0">‘반박’ 선은 최종 정리 창의 예상 질문·답변에, ‘근거’ 선은 근거 배치표에 반영됩니다.</p>`;
+  panel.querySelector("[data-close]").onclick = () => select(null);
+  const k = $("#f-ek"); k.value = e.kind; k.onchange = () => { e.kind = k.value; save(); refreshAllNodeText(); queueSum(); };
+  $("#swapE").onclick = () => { [e.from, e.to] = [e.to, e.from]; save(); refreshAllNodeText(); renderPanel(); queueSum(); };
+  $("#delE").onclick = () => { const keep = {...e}; S.edges = S.edges.filter(x=>x.id!==e.id); selected = null; save(); refreshAllNodeText(); renderPanel(); queueSum(); toast("연결을 끊었습니다.", "되돌리기", ()=>{ S.edges.push(keep); save(); refreshAllNodeText(); queueSum(); }); };
+}
+document.addEventListener("keydown", e => {
+  if ((e.key==="Delete"||e.key==="Backspace") && selected && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName)){
+    if (selected.type==="edge"){ $("#delE")?.click(); }
+  }
+  if (e.key==="Escape" && selected) select(null);
+});
+
+/* ---------- 자료함 ---------- */
+const lib = $("#lib");
+$("#openLib").onclick = () => { if (!lib.hidden){ lib.hidden = true; return; } selected = null; panel.hidden = true; renderLib(); lib.hidden = false; };
+let libFilter = "all";
+function renderLib(){
+  const onBoard = new Set(S.nodes.filter(n=>n.lib).map(n=>n.lib));
+  const list = LIBRARY.filter(l => libFilter==="all" || (libFilter==="pro" ? l.use!=="con" : l.use!=="pro"));
+  lib.innerHTML = `<div class="head"><h3>자료함</h3><button class="btn ghost" id="libClose">닫기</button></div>
+    <div class="stack" style="display:flex;flex-direction:column;gap:8px">
+      <div class="flabel">내 자료 붙여 넣기 → 자동 정리</div>
+      <input type="text" id="srcTitle" placeholder="자료 제목·출처 (예: 한겨레 2026.3.4 「응급실 AI」)">
+      <textarea id="srcText" placeholder="기사·논문 내용을 복사해 붙여 넣으세요. 쟁점별 카드로 나눠 보드에 추가합니다." style="min-height:110px"></textarea>
+      <div class="row"><button class="btn primary" id="organize">${document.documentElement.classList.contains("noai")?"쟁점별로 분류해서 보드에 추가":"자동 정리해서 보드에 추가"}</button><button class="btn ghost" id="stopOrg" hidden>중지</button></div>
+      <div class="status" id="orgStatus"></div>
+    </div>
+    <hr class="sep">
+    <div class="head"><div class="flabel">검증한 자료 ${LIBRARY.length}개 · 출처 링크로 원문 확인</div></div>
+    <div class="seg" role="group" aria-label="자료 거르기"><button aria-pressed="${libFilter==="all"}" data-lf="all">전체</button><button aria-pressed="${libFilter==="pro"}" data-lf="pro">찬성에 쓸 자료</button><button aria-pressed="${libFilter==="con"}" data-lf="con">반대에 쓸 자료</button></div>
+    ${list.map(l=>`<div class="libitem">
+      <div class="row" style="justify-content:space-between"><span class="tag ${l.use==="both"?"src":l.use}">${l.use==="both"?"양쪽":sideName(l.use)} · ${ISSUES[l.issue].name}</span>${onBoard.has(l.id)?'<span class="pill ok">보드에 있음</span>':""}</div>
+      <b>${esc(l.title)}</b><p>${esc(l.summary)}</p>
+      <p class="small">${esc(l.cite)}</p>
+      ${l.url?`<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.url.replace(/^https?:\/\//,"").slice(0,60))}</a>`:""}
+      <div class="row">${onBoard.has(l.id)?`<button class="btn small" data-golib="${l.id}">보드에서 찾기</button>`:`<button class="btn small src" data-putlib="${l.id}">보드에 놓기</button>`}</div>
+    </div>`).join("")}
+    <p class="small muted" style="margin:0">수치는 원문과 다시 대조한 뒤 입론서에 쓰세요. 법 조문은 국가법령정보센터에서 직접 확인하세요.</p>`;
+  $("#libClose").onclick = () => lib.hidden = true;
+  lib.querySelectorAll("[data-lf]").forEach(b => b.onclick = () => { libFilter = b.dataset.lf; renderLib(); });
+  lib.querySelectorAll("[data-putlib]").forEach(b => b.onclick = () => {
+    const l = LIB[b.dataset.putlib];
+    const n = addNode("src", {title:l.title, reason:l.summary, source:l.cite, url:l.url, use:l.use, lib:l.id, jitter:true});
+    save(); renderBoard(); renderLib(); toast("근거 카드를 보드 가운데에 놓았습니다. ● 점을 끌어 주장에 연결하세요.");
+    const el = nodesEl.querySelector(`[data-id="${n.id}"]`); el?.classList.add("flash");
+  });
+  lib.querySelectorAll("[data-golib]").forEach(b => b.onclick = () => { const n = S.nodes.find(x=>x.lib===b.dataset.golib); if (n){ lib.hidden = true; focusNode(n.id); } });
+  $("#organize").onclick = organize;
+  $("#stopOrg").onclick = () => orgCtl?.abort();
+}
+
+/* ---------- Claude 호출 ---------- */
+const samplePromise = (window.claude && window.claude.use) ? window.claude.use("sample").catch(()=>null) : Promise.resolve(null);
+const errCopy = c => ({
+  not_granted:"Claude 사용을 허용해야 자동 기능을 쓸 수 있습니다. 직접 입력은 그대로 쓸 수 있어요.",
+  sampling_disabled:"이 계정에서는 자동 기능을 쓸 수 없습니다.",
+  rate_limited:"요청이 많습니다. 잠시 후 다시 눌러 주세요.",
+  invalid_json:"결과를 읽지 못했습니다. 다시 눌러 보세요.",
+  prompt_too_large:"자료가 너무 깁니다. 핵심 부분만 나눠서 넣어 주세요.",
+  refused:"이 자료는 처리할 수 없습니다.",
+  cancelled:"중지했습니다."
+}[c] || "연결에 문제가 생겼습니다. 다시 시도해 주세요.");
+function digest(){
+  return S.nodes.filter(n=>n.kind==="claim").map(n=>`[${n.issue||"-"}/${roleName(n)}] ${n.title}`).join("\n").slice(0, 8000);
+}
+const normSide = s => /con|반대/.test(String(s)) ? "con" : "pro";
+const normIssue = s => { s = String(s); return /sol|해결/.test(s) ? "solution" : /cost|이익|비용/.test(s) ? "cost" : "problem"; };
+let orgCtl;
+async function organize(){
+  const text = $("#srcText").value.trim(), title = $("#srcTitle").value.trim(), st = $("#orgStatus");
+  st.className = "status";
+  if (text.length < 40){ st.className = "status err"; st.textContent = "자료 본문을 조금 더 붙여 넣어 주세요."; return; }
+  const sample = await samplePromise;
+  if (!sample){ offlineOrganize(text, title); return; }
+  $("#organize").disabled = true; $("#stopOrg").hidden = false;
+  st.textContent = "자료를 읽고 쟁점별로 나누는 중입니다… (30초 안팎)";
+  orgCtl = new AbortController();
+  const prompt = `너는 고등학교 '화법과 언어' CEDA 토론 준비를 돕는다.
+논제: "${S.topic}" (정책 논제)
+필수 쟁점: problem(문제가 중대·시급한가), solution(AI가 대신하면 해결되고 실행 가능한가), cost(이익이 비용·부작용보다 큰가).
+
+[자료]를 읽고 이 논제에 쓸 주장을 뽑아라.
+규칙:
+- evidence에는 자료에 실제로 있는 수치·사례·연구만 쓴다. 자료에 없는 숫자나 출처를 지어내지 마라. 없으면 "".
+- 각 주장마다 상대측 반박(rebuttal) 1개와, 그 반박에 대한 재반박(counter) 1개를 붙인다. 반박·재반박의 evidence도 자료에 있을 때만 쓴다.
+- 한국어. title은 30자 안팎 한 문장, reason은 1~2문장.
+- [이미 있는 주장]과 겹치면 빼라. 최대 6개.
+- source_summary: 자료의 핵심 수치·사실을 2문장으로.
+
+[이미 있는 주장]
+${digest()}
+
+[자료 제목/출처] ${title || "(없음)"}
+[자료]
+${text.slice(0, 20000)}
+
+JSON 하나만:
+{"source_summary":"","items":[{"issue":"problem|solution|cost","side":"pro|con","title":"","reason":"","evidence":"","rebuttal":{"title":"","reason":"","evidence":""},"counter":{"title":"","reason":"","evidence":""}}]}`;
+  try {
+    const r = await sample.json(prompt, {signal:orgCtl.signal, onText:()=>{ st.textContent = "정리 결과를 받는 중입니다…"; }});
+    const items = (Array.isArray(r?.items) ? r.items : []).filter(it=>it && it.title);
+    // 새 묶음을 기존 카드 아래쪽에 배치
+    const maxY = Math.max(0, ...S.nodes.map(n=>n.y)) + 260; let row = 0;
+    const srcNode = addNode("src", {at:{x:118, y:maxY+50}, title: title || "붙여 넣은 자료", reason: String(r?.source_summary||text.slice(0,140)), source: title, use:"both", fromSrc:true});
+    const made = [];
+    items.forEach(it => {
+      const side = normSide(it.side), issue = normIssue(it.issue), y = maxY + row*150;
+      const mk = (o, s, col) => addNode(s, {at:{x:240+col*290+118, y:y+50}, issue, title:String(o.title||""), reason:String(o.reason||""), evidence:String(o.evidence||""), source: o.evidence ? (title||"붙여 넣은 자료") : "", fromSrc:true});
+      const root = mk(it, side, 1); made.push(root.id);
+      if (it.evidence) S.edges.push({id:nid("e"), from:srcNode.id, to:root.id, kind:"support"});
+      if (it.rebuttal?.title){ const rb = mk(it.rebuttal, other(side), 2); S.edges.push({id:nid("e"), from:rb.id, to:root.id, kind:"rebut"});
+        if (it.counter?.title){ const ct = mk(it.counter, side, 3); S.edges.push({id:nid("e"), from:ct.id, to:rb.id, kind:"rebut"}); } }
+      row++;
+    });
+    srcNode.y = maxY + Math.max(0,(row-1))*75;
+    S.imported = [...(S.imported||[]), {title: title||"붙여 넣은 자료", added: items.length}];
+    save(); renderBoard(); queueSum();
+    st.textContent = items.length ? `주장 ${items.length}개를 반박·재반박과 함께 보드 아래쪽에 추가했습니다. 쟁점 카드에 연결하거나 끌어서 자리를 옮기세요.` : "논제와 직접 관련된 주장을 찾지 못했습니다.";
+    if (items.length){ $("#srcText").value = ""; $("#srcTitle").value = ""; setTimeout(()=>focusNode(made[0]), 50); }
+  } catch(e){ st.className = "status err"; st.textContent = errCopy(e?.code); }
+  finally { const o = $("#organize"); if (o) o.disabled = false; const s = $("#stopOrg"); if (s) s.hidden = true; }
+}
+function offlineOrganize(text, title){
+  const sents = text.split(/(?<=[.!?다요])\s+/).map(s=>s.trim()).filter(s=>s.length>15).slice(0,24);
+  const maxY = Math.max(0, ...S.nodes.map(n=>n.y)) + 260; let i = 0;
+  sents.forEach(s => {
+    const issue = /해결|정확|도입|실현|허가|기술|성능/.test(s) ? "solution" : /비용|부작용|이익|편향|책임|윤리|개인정보/.test(s) ? "cost" : /부족|문제|사망|지연|과로|공백|오류/.test(s) ? "problem" : null;
+    if (!issue) return;
+    const side = /우려|위험|편향|부작용|한계|실패|책임|비판|반대/.test(s) ? "con" : "pro";
+    addNode(side, {at:{x:240+(i%3)*290+118, y:maxY+Math.floor(i/3)*150+50}, issue, title: s.length>40 ? s.slice(0,38)+"…" : s, evidence:s, source:title, fromSrc:true}); i++;
+  });
+  save(); renderBoard(); queueSum();
+  $("#orgStatus").textContent = i ? `Claude 연결 없이 문장 ${i}개를 쟁점별 카드로 넣었습니다. 주장 문장으로 다듬고 반박을 이어 주세요.` : "쟁점과 관련된 문장을 찾지 못했습니다.";
+}
+async function aiRebut(n){
+  const st = $("#pStatus"); st.className = "status";
+  const sample = await samplePromise;
+  if (!sample){ st.className = "status err"; st.textContent = "이 환경에서는 자동 생성을 쓸 수 없습니다. ‘반박 잇기’로 직접 써 주세요."; return; }
+  const opp = other(n.side);
+  const chain = []; let cur = n, guard = 0; while (cur && guard++<6){ chain.unshift(`${roleName(cur)}: ${cur.title}${cur.reason?" / 이유: "+cur.reason:""}${cur.evidence?" / 근거: "+cur.evidence:""}`); cur = outRebut(cur.id)[0]; }
+  const evs = supports(n.id).map(s=>`- ${s.title}: ${s.reason} (${s.source})`).join("\n");
+  st.textContent = `${sideName(opp)} 측 반박을 만드는 중입니다…`;
+  try{
+    const arr = await sample.json(`CEDA 토론 논제: "${S.topic}"
+쟁점: ${n.issue?ISSUES[n.issue].name:"미정"}
+흐름:
+${chain.join("\n")}
+${evs?`이 발언의 근거 자료:\n${evs}\n`:""}
+마지막 발언에 대해 ${sideName(opp)} 측이 할 수 있는 가장 강한 반박 2개를 만들어라. 서로 다른 각도(근거의 신뢰성 / 논리의 타당성 / 공정성·형평)로 공격하라.
+- 확실하지 않은 수치·연구를 지어내지 마라. 찾아볼 자료의 '종류'만 evidenceHint에 적어라.
+- 한국어. title 30자 안팎 한 문장, reason 1~2문장.
+JSON만: [{"title":"","reason":"","evidenceHint":""}]`, {cache:false});
+    const list = (Array.isArray(arr)?arr:[]).filter(o=>o?.title).slice(0,3);
+    const base = inRebut(n.id).length;
+    list.forEach((o,i) => { const c = addNode(opp, {at:{x:n.x+118+300, y:n.y+50+(base+i)*140}, issue:n.issue, title:String(o.title), reason:String(o.reason||""), source: o.evidenceHint ? "찾을 자료: "+o.evidenceHint : ""}); S.edges.push({id:nid("e"), from:c.id, to:n.id, kind:"rebut"}); });
+    save(); renderBoard(); queueSum();
+    const s2 = $("#pStatus"); if (s2) s2.textContent = list.length ? `반박 ${list.length}개를 오른쪽에 이어 붙였습니다.` : "반박을 만들지 못했습니다.";
+  }catch(e){ const s2 = $("#pStatus"); if (s2){ s2.className="status err"; s2.textContent = errCopy(e?.code); } }
+}
+
+/* ---------- 최종 정리 창 ---------- */
+const sheet = $("#sheet");
+const roots = (issue, side) => S.nodes.filter(n => n.kind==="claim" && n.issue===issue && n.side===side && !outRebut(n.id).length);
+const evText = n => [n.evidence, ...supports(n.id).map(s=>s.reason)].filter(Boolean);
+const srcText = n => [...new Set([n.source, ...supports(n.id).map(s=>s.source)].filter(x=>x && !/^찾을 자료/.test(x)))];
+const J = n => `<button class="jump" data-focus="${n.id}" data-sumid="${n.id}" title="보드에서 보기">${esc(n.title)}</button>`;
+let ourSide = "pro";
+const SPEECHES = [
+  {key:"pro1", side:"pro", title:"찬성 첫 번째 입론", who:"찬성 1 · 3분", sec:180, issues:["problem"], intro:true, focus:"필수 개념 정의, 논제 등장 배경, 문제의 심각성"},
+  {key:"con1", side:"con", title:"반대 첫 번째 입론", who:"반대 1 · 3분", sec:180, issues:["problem"], intro:true, focus:"문제의 심각성 반박"},
+  {key:"pro2", side:"pro", title:"찬성 두 번째 입론", who:"찬성 2 · 2분", sec:120, issues:["solution","cost"], focus:"추가 논거, 실현 가능성, 시행 시 이익"},
+  {key:"con2", side:"con", title:"반대 두 번째 입론", who:"반대 2 · 2분", sec:120, issues:["solution","cost"], focus:"추가 논거, 실현 가능성, 시행 시 비용"}
+];
+const ord = ["첫째","둘째","셋째","넷째","다섯째","여섯째"];
+function draft(sp){
+  const cl = []; sp.issues.forEach(k => roots(k, sp.side).forEach(n=>cl.push(n)));
+  const pos = sideName(sp.side); let t = "";
+  if (sp.intro){
+    t += `안녕하십니까. 저희 ${pos} 측은 ‘${S.topic}’는 논제에 ${pos}합니다.\n\n`;
+    if (sp.side==="pro"){
+      t += "먼저 용어를 정의하겠습니다. " + S.terms.map(x=>`‘${x.term}’이란 ${x.def.replace(/\.$/,"")}을 말합니다.`).join(" ") + "\n\n";
+      if (S.background.length) t += "이 논제가 등장한 배경은 다음과 같습니다. " + S.background.join(" ") + "\n\n";
+    } else t += "찬성 측은 지금의 문제가 심각하다고 말했지만, 저희는 그 문제가 AI에게 생명 결정을 맡겨야 할 이유는 되지 못한다고 봅니다.\n\n";
+  } else t += `${pos} 측 두 번째 입론을 시작하겠습니다. ${sp.focus}을 중심으로 말씀드리겠습니다.\n\n`;
+  cl.forEach((n,i) => {
+    t += `${ord[i]||"다음으로"}, ${n.title.replace(/[.]$/,"")}.`;
+    if (n.reason) t += ` ${n.reason}`;
+    const ev = evText(n)[0]; if (ev) t += ` 실제로 ${ev}`;
+    const so = srcText(n).filter(s=>!/직접/.test(s))[0]; if (so) t += ` (출처: ${so})`;
+    t += "\n\n";
+  });
+  t += sp.side==="pro"
+    ? (sp.intro ? "따라서 검증된 AI가 의료진의 생명 관련 의사결정을 대신하는 것을 허용해야 합니다. 이상으로 찬성 측 첫 번째 입론을 마치겠습니다." : "그러므로 이 정책은 비용보다 큰 이익을 가져옵니다. 이상입니다.")
+    : (sp.intro ? "따라서 AI가 의료진의 생명 관련 의사결정을 대신하도록 허용해서는 안 됩니다. 이상으로 반대 측 첫 번째 입론을 마치겠습니다." : "그러므로 이 정책은 얻는 이익보다 잃는 것이 더 큽니다. 이상입니다.");
+  return t;
+}
+const openQ = q => /어떻게 생각|어떻게 보십|의견은/.test(q||"");
+const toQ = s => { s = s.replace(/[.]$/,""); return /[?까]$/.test(s) ? s : `${s}는 지적에 어떻게 답하시겠습니까?`; };
+function renderSum(){
+  if (sheet.contains(document.activeElement) && /TEXTAREA|INPUT/.test(document.activeElement.tagName)) { sumDirty = true; return; }
+  sumDirty = false;
+  const sec2 = IKEYS.map(k=>`<tr><td class="c">${ISSUES[k].name}</td><td>${list(roots(k,"pro"))}</td><td>${list(roots(k,"con"))}</td></tr>`).join("");
+  function list(arr){ return arr.length ? `<ul>${arr.map(n=>`<li>${J(n)}</li>`).join("")}</ul>` : '<span class="pill need">보드에 주장 없음</span>'; }
+  const arg = (n) => `<div class="argcard ${n.side}"><span class="k">주장</span>${J(n)}<span class="k">이유</span><span>${esc(n.reason)||'<span class="pill need">이유 필요</span>'}</span><span class="k">근거</span><span>${evText(n).map(esc).join("<br>")||'<span class="pill need">근거 필요</span>'}</span><span class="k">출처</span><span class="small">${srcText(n).map(esc).join(" · ")||'<span class="pill need">출처 필요</span>'}</span></div>`;
+  const sec3 = IKEYS.map(k=>`<div><div class="flabel" style="margin:8px 0 6px">${ISSUES[k].no} ${ISSUES[k].name}</div><div class="grid2"><div style="display:flex;flex-direction:column;gap:8px">${roots(k,"pro").map(arg).join("")||'<span class="muted small">찬성 주장 없음</span>'}</div><div style="display:flex;flex-direction:column;gap:8px">${roots(k,"con").map(arg).join("")||'<span class="muted small">반대 주장 없음</span>'}</div></div></div>`).join("");
+  const exp = []; S.nodes.filter(n=>n.kind==="claim" && n.side===ourSide).forEach(n => inRebut(n.id).filter(q=>q.side!==ourSide).forEach(q => exp.push({on:n, q, a:inRebut(q.id).find(x=>x.side===ourSide)})));
+  const mine = S.cx.map((q,i)=>({q,i})).filter(x=>x.q.side===ourSide);
+  sheet.innerHTML = `
+    <div class="sheet-top"><h2>최종 정리</h2><div class="row"><span class="small muted">보드를 고치면 바로 반영됩니다</span><button class="btn" id="copyAll">전체 복사</button></div></div>
+    <div class="sec"><h3><span class="no">1</span>논제 확인</h3>
+      <p style="margin:0 0 8px"><b>${esc(S.topic)}</b> <span class="pill">정책 논제</span></p>
+      <div class="flabel">주요 용어 정의</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin:4px 0 10px">${S.terms.map((t,i)=>`<div class="row" style="flex-wrap:nowrap;align-items:flex-start"><input type="text" data-term="${i}" data-f="term" value="${esc(t.term)}" style="width:34%" aria-label="용어"><textarea data-term="${i}" data-f="def" style="min-height:40px" aria-label="정의">${esc(t.def)}</textarea></div>`).join("")}</div>
+      <div class="flabel">문제 상황이 발생한 배경</div>
+      <textarea id="bgText" style="min-height:90px;margin-top:4px" aria-label="배경">${esc(S.background.join("\n"))}</textarea>
+    </div>
+    <div class="sec"><h3><span class="no">2</span>필수 쟁점 선정 <small>보드의 ‘주장’ 카드(반박이 아닌 것)</small></h3>
+      <div class="tbl"><table><thead><tr><th style="width:90px">필수 쟁점</th><th class="pro">찬성 측</th><th class="con">반대 측</th></tr></thead><tbody>${sec2}</tbody></table></div>
+    </div>
+    <div class="sec"><h3><span class="no">3</span>필수 쟁점에 따른 근거 배치 <small>근거 카드 연결도 포함</small></h3>${sec3}</div>
+    <div class="sec"><h3><span class="no">4</span>입론서 <small>1분 ≈ 300자로 계산</small></h3>
+      <div class="order" aria-label="진행 순서"><span class="p">① 찬성1 입론 3분</span><span class="c">② 반대2 신문 3분</span><span class="c">③ 반대1 입론 3분</span><span class="p">④ 찬성1 신문 3분</span><span class="p">⑤ 찬성2 입론 2분</span><span class="c">⑥ 반대1 신문 2분</span><span class="c">⑦ 반대2 입론 2분</span><span class="p">⑧ 찬성2 신문 2분</span><span class="c">⑨ 반대3 반론 2분</span><span class="p">⑩ 찬성3 반론 2분</span></div>
+      <div class="grid2" style="margin-top:10px" id="speeches"></div>
+    </div>
+    <div class="sec"><h3><span class="no">5·6</span>예상 질문·반대 신문</h3>
+      <div class="seg" role="group" aria-label="우리 측 입장" style="margin-bottom:10px"><button aria-pressed="${ourSide==="pro"}" data-our="pro">우리가 찬성일 때</button><button aria-pressed="${ourSide==="con"}" data-our="con">우리가 반대일 때</button></div>
+      <div class="grid2">
+        <div style="display:flex;flex-direction:column;gap:8px"><div class="flabel">5. 예상 질문과 답변 <span class="muted">(보드의 반박 선에서 자동)</span></div>
+          ${exp.length ? exp.map(x=>`<div class="qitem"><span class="lbl">${x.on.issue?ISSUES[x.on.issue].name+" · ":""}우리 주장: ${J(x.on)}</span><p><b>질문</b> ${esc(toQ(x.q.title))}</p><p class="muted"><b>답변</b> ${x.a ? esc(x.a.title+(x.a.reason?" "+x.a.reason:"")) : '<span class="pill need">보드에서 재반박을 이어 주세요</span>'}</p></div>`).join("") : '<p class="muted small">우리 측 카드에 이어진 상대 반박이 없습니다.</p>'}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div class="flabel">6. 우리가 할 반대 신문 <span class="muted">(확인 → 검증)</span></div>
+          ${mine.map(({q,i})=>`<div class="qitem"><span class="lbl">확인 질문</span><textarea data-cx="${i}" data-f="confirm" style="min-height:44px" aria-label="확인 질문">${esc(q.confirm)}</textarea><span class="lbl">검증 질문 ${openQ(q.verify)?'<span class="pill need">개방형 질문 — 바꾸기</span>':""}</span><textarea data-cx="${i}" data-f="verify" style="min-height:58px" aria-label="검증 질문">${esc(q.verify)}</textarea><div class="row" style="justify-content:flex-end"><button class="btn ghost small" data-delcx="${i}">삭제</button></div></div>`).join("") || '<p class="muted small">아직 질문이 없습니다.</p>'}
+          <div class="row"><button class="btn small" id="addCx">질문 추가</button><button class="btn small" id="genCx">상대 주장으로 질문 만들기</button></div>
+          <div class="status" id="cxStatus"></div>
+          <ul class="tips"><li>상대가 말한 범위 안에서만 묻습니다.</li><li>“어떻게 생각하십니까?” 같은 개방형 질문은 피합니다.</li><li>신뢰성·타당성·공정성 기준으로 근거를 검증합니다.</li></ul>
+        </div>
+      </div>
+    </div>`;
+  sheet.querySelectorAll("[data-focus]").forEach(b => b.onclick = () => focusNode(b.dataset.focus));
+  sheet.querySelectorAll("[data-term]").forEach(el => el.addEventListener("input", () => { S.terms[+el.dataset.term][el.dataset.f] = el.value; save(); }));
+  $("#bgText").addEventListener("input", e => { S.background = e.target.value.split("\n").map(s=>s.trim()).filter(Boolean); save(); });
+  sheet.querySelectorAll("[data-our]").forEach(b => b.onclick = () => { ourSide = b.dataset.our; renderSum(); });
+  sheet.querySelectorAll("[data-cx]").forEach(t => t.addEventListener("input", () => { S.cx[+t.dataset.cx][t.dataset.f] = t.value; save(); }));
+  sheet.querySelectorAll("[data-delcx]").forEach(b => b.onclick = () => { S.cx.splice(+b.dataset.delcx,1); save(); renderSum(); });
+  $("#addCx").onclick = () => { S.cx.push({side:ourSide, confirm:"방금 ○○라고 하셨는데 맞습니까?", verify:""}); save(); renderSum(); };
+  $("#genCx").onclick = genCx;
+  $("#copyAll").onclick = () => copyText(exportAll());
+  sheet.addEventListener("focusout", () => { setTimeout(()=>{ if (sumDirty && !sheet.contains(document.activeElement)) renderSum(); }, 0); }, {once:true});
+  renderSpeeches();
+}
+let sumDirty = false, sumT;
+function queueSum(){ if (mode==="board") return; clearTimeout(sumT); sumT = setTimeout(renderSum, 300); }
+function renderSpeeches(){
+  const host = $("#speeches");
+  SPEECHES.forEach(sp => {
+    const text = S.speeches[sp.key] ?? draft(sp);
+    const c = document.createElement("div"); c.className = "speech"; c.style.cssText = "display:flex;flex-direction:column;gap:6px";
+    c.innerHTML = `<div class="row" style="justify-content:space-between"><b>${sp.title}</b><span class="tag ${sp.side}">${sp.who}</span></div>
+      <span class="small muted">${sp.focus}</span>
+      <textarea aria-label="${sp.title}">${esc(text)}</textarea>
+      <div class="row" style="justify-content:space-between"><span class="meter"></span><span class="row">${S.speeches[sp.key]!=null?'<button class="btn ghost small" data-regen>보드 내용으로 다시 만들기</button>':'<span class="pill">보드와 연동 중</span>'}<button class="btn ghost small" data-polish>말하기체로 다듬기</button><button class="btn small" data-copy>복사</button></span></div>
+      <div class="status"></div>`;
+    host.appendChild(c);
+    const ta = c.querySelector("textarea"), m = c.querySelector(".meter"), st = c.querySelector(".status");
+    const meter = () => { const n = ta.value.replace(/\s/g,"").length, s = Math.round(n/300*60); m.textContent = `${n}자 · 약 ${Math.floor(s/60)}분 ${String(s%60).padStart(2,"0")}초 / ${sp.sec/60}분`; m.classList.toggle("over", s > sp.sec); };
+    meter();
+    ta.addEventListener("input", () => { S.speeches[sp.key] = ta.value; save(); meter(); });
+    c.querySelector("[data-regen]")?.addEventListener("click", () => { delete S.speeches[sp.key]; save(); renderSum(); });
+    c.querySelector("[data-copy]").onclick = () => copyText(ta.value, ta);
+    c.querySelector("[data-polish]").onclick = async () => {
+      const sample = await samplePromise;
+      if (!sample){ st.className="status err"; st.textContent = "이 환경에서는 다듬기를 쓸 수 없습니다."; return; }
+      st.className = "status"; st.textContent = "다듬는 중입니다…";
+      try{
+        const r = await sample(`다음은 고등학생 CEDA 토론의 ${sp.title}(${sp.sec/60}분) 초안이다. 발표용 말하기체로 자연스럽게 다듬어라.
+- 내용·수치·출처는 바꾸거나 새로 지어내지 마라. 연결어와 문장만 다듬는다.
+- 공백 제외 ${sp.sec/60*290}자 이내. 다듬은 본문만 답하라.
+
+${ta.value}`, {cache:false, onText:({text})=>{ ta.value = text; meter(); }});
+        ta.value = r.text.trim(); S.speeches[sp.key] = ta.value; save(); meter(); st.textContent = "다듬었습니다. 수치와 출처가 그대로인지 확인하세요.";
+      }catch(e){ st.className = "status err"; st.textContent = errCopy(e?.code); }
+    };
+  });
+}
+async function genCx(){
+  const st = $("#cxStatus"); st.className = "status";
+  const sample = await samplePromise;
+  if (!sample){ st.className = "status err"; st.textContent = "이 환경에서는 자동 생성을 쓸 수 없습니다. 직접 추가해 주세요."; return; }
+  const opp = S.nodes.filter(n=>n.kind==="claim" && n.side!==ourSide && !outRebut(n.id).length).map(n=>`- ${n.title}${n.reason?" / 이유: "+n.reason:""}${evText(n).length?" / 근거: "+evText(n).join(" "):""}${srcText(n).length?" / 출처: "+srcText(n).join(", "):""}`);
+  st.textContent = "상대 주장을 보고 질문을 만드는 중입니다…";
+  try{
+    const arr = await sample.json(`CEDA 토론 논제: "${S.topic}". 우리는 ${sideName(ourSide)} 측이다.
+상대(${sideName(other(ourSide))}) 측이 입론에서 말할 주장과 근거:
+${opp.join("\n").slice(0,8000)}
+
+반대 신문 질문 3쌍을 만들어라. 확인 질문은 상대 발언을 그대로 확인하는 "~맞습니까?" 형식, 검증 질문은 근거의 신뢰성·타당성·공정성 허점을 찌르는 폐쇄형 질문.
+- 상대가 말한 범위 안에서만. 개방형 질문 금지. 수치·연구를 새로 지어내지 마라.
+JSON만: [{"confirm":"","verify":""}]`, {cache:false});
+    const list = (Array.isArray(arr)?arr:[]).filter(o=>o?.confirm).slice(0,4);
+    list.forEach(o => S.cx.push({side:ourSide, confirm:String(o.confirm), verify:String(o.verify||"")}));
+    save(); renderSum(); const s2 = $("#cxStatus"); if (s2) s2.textContent = `질문 ${list.length}쌍을 추가했습니다.`;
+  }catch(e){ const s2 = $("#cxStatus"); if (s2){ s2.className="status err"; s2.textContent = errCopy(e?.code); } }
+}
+function exportAll(){
+  let t = `논제: ${S.topic}\n\n1. 주요 용어 정의\n` + S.terms.map(x=>`- ${x.term}: ${x.def}`).join("\n") + `\n\n문제 상황이 발생한 배경\n` + S.background.map(b=>"- "+b).join("\n") + "\n\n2·3. 필수 쟁점과 근거 배치\n";
+  IKEYS.forEach(k => { t += `\n[${ISSUES[k].name}]\n`; ["pro","con"].forEach(s => roots(k,s).forEach(n => {
+    t += `(${sideName(s)}) 주장: ${n.title}\n   이유: ${n.reason}\n   근거: ${evText(n).join(" / ")}\n   출처: ${srcText(n).join(" / ")}\n`;
+    inRebut(n.id).forEach(r => { t += `      ↳ (${sideName(r.side)} 반박) ${r.title}\n`; inRebut(r.id).forEach(rr => t += `         ↳ (${sideName(rr.side)} 재반박) ${rr.title}\n`); });
+  })); });
+  t += "\n4. 입론서\n" + SPEECHES.map(sp => `\n[${sp.title}]\n${S.speeches[sp.key] ?? draft(sp)}`).join("\n");
+  t += "\n\n6. 반대 신문\n" + S.cx.map(q=>`(${sideName(q.side)} 측) 확인: ${q.confirm}\n   검증: ${q.verify}`).join("\n");
+  return t;
+}
+
+/* ---------- 공통 ---------- */
+let toastT;
+function toast(msg, action, fn){
+  const t = $("#toast"); t.innerHTML = `<span>${esc(msg)}</span>${action?`<button>${esc(action)}</button>`:""}`; t.hidden = false;
+  if (action) t.querySelector("button").onclick = () => { fn(); t.hidden = true; };
+  clearTimeout(toastT); toastT = setTimeout(()=>t.hidden = true, action ? 6000 : 3000);
+}
+async function copyText(text, el){
+  try { await navigator.clipboard.writeText(text); toast("복사했습니다. 활동지나 한글 문서에 붙여 넣으세요."); }
+  catch(e){ if (el){ el.focus(); el.select(); toast("선택해 두었습니다. Ctrl+C로 복사하세요."); } else toast("복사하지 못했습니다. 브라우저가 클립보드를 막았어요."); }
+}
+function setMode(m){
+  mode = m;
+  document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode===m));
+  $("#main").classList.toggle("split", m==="split");
+  $("#boardWrap").hidden = m==="sum"; $("#sumWrap").hidden = m==="board";
+  if (m!=="board") renderSum();
+  if (m!=="sum") requestAnimationFrame(()=>{ applyView(); drawEdges(); });
+  try{ localStorage.setItem(KEY+"-mode", m); }catch(e){}
+}
+document.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => setMode(b.dataset.mode));
+window.addEventListener("resize", () => drawEdges());
+
+
+/* ---------- 단독 웹페이지: 파일 저장/불러오기 ---------- */
+if (!(window.claude && window.claude.use)) document.documentElement.classList.add("noai");
+$("#saveFile").onclick = () => {
+  const blob = new Blob([JSON.stringify(S, null, 1)], {type:"application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  const d = new Date(); a.download = `토론보드_${d.getMonth()+1}월${d.getDate()}일.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  toast("보드를 파일로 저장했습니다. 모둠원에게 보내 ‘파일 불러오기’로 열 수 있어요.");
+};
+$("#loadFile").onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const d = JSON.parse(await f.text()); if (!Array.isArray(d.nodes) || !Array.isArray(d.edges)) throw 0;
+    const prev = S; S = d; selected = null; save(); renderBoard(); renderPanel(); if (mode!=="board") renderSum(); requestAnimationFrame(fit);
+    toast("파일을 불러왔습니다.", "되돌리기", () => { S = prev; save(); renderBoard(); if (mode!=="board") renderSum(); });
+  } catch(err){ toast("보드 파일이 아닙니다. ‘파일로 저장’으로 만든 .json 파일을 골라 주세요."); }
+  e.target.value = "";
+};
+
+applyView(); renderBoard();
+let m0 = "board"; try{ m0 = localStorage.getItem(KEY+"-mode") || "board"; }catch(e){}
+setMode(m0);
+let firstVisit = true; try{ firstVisit = !localStorage.getItem(KEY); }catch(e){}
+if (firstVisit) requestAnimationFrame(fit);
+save();
+})();
+</script>
+
+</body>
+</html>
