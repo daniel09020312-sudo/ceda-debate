@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>AI 의료 결정 토론 보드</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
@@ -54,7 +57,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .muted{color:var(--muted)}.small{font-size:12.5px}
 .status{font-size:12.5px;min-height:1.2em}.status.err{color:var(--con)}
 .pill{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--sunk);color:var(--muted);white-space:nowrap}
-.pill.ok{color:var(--ok)}.pill.need{background:var(--warn-soft);color:var(--warn)}.pill.new{background:var(--fg);color:var(--bg)}
+.pill.ok{color:var(--ok)}
+#syncState.live{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+#syncState.off{background:var(--warn-soft);color:var(--warn)}.pill.need{background:var(--warn-soft);color:var(--warn)}.pill.new{background:var(--fg);color:var(--bg)}
 .tag{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:700}
 .tag.pro{background:var(--pro-soft);color:var(--pro)}.tag.con{background:var(--con-soft);color:var(--con)}.tag.src{background:var(--src-soft);color:var(--src)}
 
@@ -171,6 +176,7 @@ main.split .grid2{grid-template-columns:minmax(0,1fr)}
       <div class="eyebrow">CEDA 반대 신문식 토론 · 정책 논제 · 찬성·반대 모두 준비</div>
       <h1>AI가 의료진의 생명 관련 의사결정을 대신하는 것을 허용해야 한다</h1>
     </div>
+    <div class="row" id="syncBar"><span class="pill" id="syncState">혼자 쓰는 중</span><span class="pill" id="roomName"></span><button class="btn ghost small" id="copyLink">모둠 링크 복사</button></div>
     <div class="seg" role="group" aria-label="화면 보기">
       <button aria-pressed="true" data-mode="board">브레인스토밍 보드</button>
       <button aria-pressed="false" data-mode="split">나란히 보기</button>
@@ -231,7 +237,7 @@ main.split .grid2{grid-template-columns:minmax(0,1fr)}
 
 <script>
 (() => {
-const KEY = "ceda-ai-med-board-v2";
+const KEY = "ceda-board-v3";
 const ISSUES = {
   problem:{no:"쟁점 1", name:"문제", desc:"지금 생명 판단에 중대·시급한 문제가 있는가"},
   solution:{no:"쟁점 2", name:"해결 방안", desc:"AI가 대신하면 해결되고 실행 가능한가"},
@@ -266,85 +272,41 @@ const LIBRARY = [
 ];
 const LIB = Object.fromEntries(LIBRARY.map(l=>[l.id,l]));
 
-/* ---------- 예시 보드 ---------- */
+/* ---------- 빈 보드 (쟁점 카드 3개만) ---------- */
 function seed(){
-  const nodes = [], edges = [];
-  const C = (id, side, issue, title, reason, evidence, source) => nodes.push({id, kind:"claim", side, issue, title, reason, evidence:evidence||"", source:source||"", x:0, y:0});
-  const SRC = (lid) => { const l = LIB[lid]; const id = "s_"+lid; if (!nodes.some(n=>n.id===id)) nodes.push({id, kind:"src", lib:lid, title:l.title, reason:l.summary, source:l.cite, url:l.url, use:l.use, x:0, y:0}); return id; };
-  const E = (from, to, kind) => edges.push({id:nid("e"), from, to, kind});
-  IKEYS.forEach(k => nodes.push({id:"h_"+k, kind:"issue", issue:k, title:ISSUES[k].name, reason:ISSUES[k].desc, x:0, y:0}));
-
-  // 쟁점 1 문제
-  C("p1","pro","problem","의사 부족으로 응급 생명 판단이 늦어지고 있다","의사 수가 OECD 최하위권이고, 전문의가 없어 응급환자가 병원을 옮겨 다니는 일이 늘었다.","인구 1,000명당 임상의사 2.66명(OECD 평균 3.86명). 2024년 추석 연휴 재이송 40% 증가, 사유의 48.2%가 전문의 부재.","OECD 보건통계 2025 / 소방청 자료");
-  C("c1","con","problem","원인은 인력과 제도이지 의사의 판단이 아니다","원인이 인력 부족이라면 해결책도 인력 확충과 제도 개선이어야 한다. AI 대체는 원인과 맞지 않는 처방이다.","소방청도 재이송은 맞는 병원을 찾는 과정이라 단순 비교는 부적절하다고 밝혔다.","소방청 입장 / 뉴시스 2024.10.3");
-  C("p1a","pro","problem","의사를 키우는 데 10년이 넘게 걸린다","의대 6년과 수련 과정을 거쳐야 전문의가 되므로, 그 사이 공백을 메울 수단이 지금 필요하다.","","의사 양성 과정 — 직접 확인");
-  C("p2","pro","problem","사람의 판단 오류 자체가 큰 피해를 낸다","피로와 경험 차이 때문에 사람은 같은 상황에서도 다르게 판단하고 실수한다.","의료 과실이 미국 사망 원인 3위 수준이라는 추정이 있다.","Makary & Daniel, BMJ 2016");
-  C("c2","con","problem","그 추정은 과장 논란이 있고, AI도 크게 틀린다","BMJ 추정은 방법론 비판을 받았다. 실제 병원에 쓰인 AI도 환자 다수를 놓친 사례가 있다.","Epic 패혈증 AI가 실제 환자의 67%를 놓침.","Wong et al., JAMA Intern Med 2021");
-  C("c3","con","problem","AI ‘보조’만으로도 생명을 구할 수 있다","의료진이 최종 결정하고 AI가 경고만 해도 효과가 크므로 결정권까지 넘길 필요가 없다.","TREWS는 경고만 했는데도 패혈증 사망률이 18% 줄었다.","Nature Medicine 2022");
-  C("p3","pro","problem","보조 경고는 대부분 무시된다(경보 피로)","경고가 많으면 의료진이 습관적으로 넘겨 버려 보조형 AI의 효과가 줄어든다.","약물 경고의 약 75%가 무시되고, 그중 40%는 부적절한 무시였다.","JAMIA 연구 / Healthcare Dive 2017");
-  C("c3a","con","problem","경보 피로는 설계로 고칠 문제다","경고 기준을 다듬으면 해결되는 문제이며, 결정권을 AI에 넘길 이유는 아니다.","TREWS 경보는 약 89%가 실제로 검토됐다.","Scientific American 보도");
-  // 쟁점 2 해결 방안
-  C("p4","pro","solution","검증된 영역에서 AI는 전문의보다 정확하다","정확한 판단이 생명을 구하므로, 성능이 입증된 영역은 AI에 맡기는 것이 낫다.","유방암 판독 AI가 위음성을 최대 9.4%p, 위양성을 5.7%p 줄였다. 국내 디지털의료기기 허가도 388건에 이른다.","Nature 2020 / 식약처 2025");
-  C("c4","con","solution","연구 성능이 실제 병원에서 재현되지 않는다","개발 데이터와 실제 환자 집단이 달라 현장에서는 정확도가 떨어진다.","Epic 패혈증 AI 외부 검증에서 67% 놓침. 왓슨과 국내 의료진 일치율 55.9%.","JAMA Intern Med 2021 / 메디게이트뉴스 2018");
-  C("p4a","pro","solution","외부 검증을 통과한 AI만 허가하면 된다","‘허용’은 모든 AI가 아니라 실제 병원 데이터로 검증·인증된 AI에 한정한 허가제로 설계할 수 있다.","식약처는 이미 디지털의료기기 허가·임상 승인 제도를 운영 중이다.","식약처 / 데일리팜 2025.8.19");
-  C("c5","con","solution","영상 판독 성능은 생명 결정의 근거가 못 된다","유방암 판독 한 영역의 결과로 수술 여부나 연명의료처럼 복합적인 판단까지 맡길 수는 없다. 논리의 비약이다.","","");
-  C("c6","con","solution","AI 판단의 책임질 주체가 없다","잘못된 결정이 났을 때 책임이 불분명하면 환자가 보호받지 못한다.","의료법 제27조는 의료행위를 의료인으로 한정. 기존 법체계는 AI를 고려하지 않아 개발사·병원·의사가 책임을 떠넘길 수 있다.","의료법 / 디지털데일리 2025.10.18");
-  C("p6","pro","solution","책임·보험 제도를 새로 만들면 된다","제조사 책임과 배상 보험을 법으로 정하면 공백을 메울 수 있다. 법은 기술에 맞춰 바뀌어 왔다.","미국 IDx-DR 제조사는 사고 시 책임지겠다고 선언했다.","디지털데일리 2025.10.18");
-  C("c6a","con","solution","생명은 사후 보상으로 되돌릴 수 없다","책임 제도가 생겨도 잘못된 생명 결정은 회복되지 않으므로 사람의 사전 판단이 필요하다.","","");
-  C("c7","con","solution","국내외 규제는 ‘사람의 감독’을 요구한다","EU와 한국 모두 의료 AI를 고위험으로 보고 사람의 감독을 의무로 두고 있어, AI 단독 결정은 규제 흐름과 맞지 않는다.","EU AI Act 고위험 규정(2028.8 적용), 한국 AI 기본법(2026.1 시행).","법률신문 2026.8.20 / 뉴시스 2024.12.26");
-  C("p7","pro","solution","규제는 금지가 아니라 조건이다","규제는 안전장치를 갖추라는 조건일 뿐이다. 감시·기록·사후 점검 조건을 갖추면 허용할 수 있다.","","");
-  // 쟁점 3 이익 및 비용
-  C("p8","pro","cost","빠른 판단으로 더 많은 생명을 구한다","AI는 지치지 않아 야간·주말이나 의료 취약 지역에서도 같은 수준으로 빠르게 판단한다.","TREWS 적용 시 패혈증 치료가 평균 약 2시간 빨라졌다.","Nature Medicine 2022");
-  C("c8","con","cost","알고리즘 편향으로 특정 환자가 불이익을 받는다","학습 데이터가 치우치면 AI가 일부 집단의 위험을 낮게 평가해 치료 기회를 빼앗는다.","미국 알고리즘이 의료비를 지표로 써서 흑인 환자를 더 건강하다고 판단했다.","Obermeyer et al., Science 2019");
-  C("p8a","pro","cost","AI의 편향은 찾아내고 고칠 수 있다","사람 의사의 편향은 잘 드러나지 않지만, AI의 편향은 데이터로 확인하고 수정할 수 있다.","같은 연구에서 지표를 바꾸자 편향이 해소됐다.","Obermeyer et al., Science 2019");
-  C("c9","con","cost","AI를 믿다가 의료진 판단력이 무너진다","AI가 틀려도 사람이 따라가는 자동화 편향이 생겨, 오류를 잡을 마지막 안전장치가 사라진다.","AI가 틀리자 경험 많은 의사의 정확도도 82%→45.5%로 떨어졌다.","Radiology 2023 / RSNA");
-  C("p9","pro","cost","오히려 ‘반쯤 맡기는’ 구조가 가장 위험하다는 증거다","사람이 AI에 흔들리는 혼합 판단이 불안정하므로, 검증된 영역은 책임을 분명히 하고 AI에 맡기는 편이 일관적이다.","같은 Radiology 2023 연구를 다르게 해석","Radiology 2023");
-  C("c10","con","cost","환자의 자기결정권과 인간적 소통이 사라진다","생명 결정은 환자·가족의 가치관을 반영해야 하는데, AI는 그 대화를 대신할 수 없다.","WHO는 의료 결정의 통제권이 사람에게 있어야 한다고 밝혔다. 연명의료결정법도 의사 2명의 판단과 환자 의사 확인을 요구한다.","WHO 2021 / 연명의료결정법");
-  C("p10","pro","cost","설명 의무와 동의 절차를 두면 된다","AI가 결정하더라도 결과와 이유를 환자에게 설명하고 동의를 받게 하면 자기결정권은 지켜진다.","","");
-  C("c10a","con","cost","블랙박스 AI는 이유를 설명하지 못한다","딥러닝은 판단 근거를 사람이 이해할 수 있게 설명하기 어려워 실질적인 설명이 불가능하다.","","");
-  nodes.push({id:"m1", kind:"memo", title:"‘대신’의 범위부터 합의하기", reason:"찬성 측 첫 입론에서 ‘의료진 승인 없이 AI 결정이 실행되는 것’으로 정의할지, ‘검증된 일부 영역’으로 좁힐지 정해야 반대 신문에서 흔들리지 않는다.", x:0, y:0});
-
-  [["p1","c1"],["c1","p1a"],["p2","c2"],["c3","p3"],["p3","c3a"],["p4","c4"],["c4","p4a"],["p4","c5"],["c6","p6"],["p6","c6a"],["c7","p7"],["p8","c8"],["c8","p8a"],["c9","p9"],["c10","p10"],["p10","c10a"]].forEach(([t,f]) => E(f,t,"rebut"));
-  ["p1","p2","c3"].forEach(id=>E("h_problem",id,"link"));
-  ["p4","c6","c7"].forEach(id=>E("h_solution",id,"link"));
-  ["p8","c9","c10"].forEach(id=>E("h_cost",id,"link"));
-  const S2 = (lid, ids) => { const s = SRC(lid); ids.forEach(id=>E(s,id,"support")); };
-  S2("L1",["p1"]); S2("L2",["p1","c1"]); S2("L3",["p2"]); S2("L9",["p3"]); S2("L4",["c3","c3a","p8"]);
-  S2("L5",["p4"]); S2("L13",["p4a"]); S2("L6",["c4","c2"]); S2("L15",["c4"]); S2("L16",["c6"]); S2("L14",["c6","p6"]); S2("L11",["c7"]); S2("L12",["c7"]);
-  S2("L7",["c8","p8a"]); S2("L8",["c9","p9"]); S2("L10",["c10"]); S2("L17",["c10"]);
-
-  const st = {
-    topic:"AI가 의료진의 생명 관련 의사결정을 대신하는 것을 허용해야 한다",
-    terms:[
-      {term:"AI(의료 인공지능)", def:"진료 기록·영상·생체 신호 등 의료 데이터를 학습해 진단이나 치료 판단을 내리는 소프트웨어. 임상 의사결정 지원 시스템(CDSS)을 포함한다."},
-      {term:"생명 관련 의사결정", def:"응급 환자 중증도 분류, 수술·치료 여부, 연명의료 중단처럼 환자의 생사에 직접 이어지는 판단."},
-      {term:"대신하는 것", def:"의료진의 최종 승인 없이 AI의 판단이 결정으로 실행되는 것. 의료진이 참고만 하는 ‘보조’와 구분한다."}
-    ],
-    background:[
-      "의사 수가 OECD 최하위권이고, 전문의 부재로 응급환자 재이송이 늘었다.",
-      "국내 디지털의료기기 허가가 2017년 1건에서 2025년 388건으로 늘 만큼 의료 AI가 빠르게 도입되고 있다.",
-      "AI 판단에 대한 책임 주체가 법적으로 정해지지 않았다.",
-      "2026년 한국 AI 기본법 시행, EU AI Act 등 의료 AI를 고위험으로 규제하는 흐름이 생겼다."
-    ],
-    nodes, edges, cx:[
-      {side:"con", confirm:"방금 AI가 전문의보다 정확하다는 근거로 2020년 Nature 유방암 판독 연구를 드셨는데 맞습니까?", verify:"그 연구는 영상 판독 한 영역의 결과인데, 수술 여부나 연명의료 같은 생명 판단 전체를 AI에 맡길 근거가 될 수 있습니까?"},
-      {side:"con", confirm:"외부 검증을 통과한 AI만 허가하면 된다고 하셨죠?", verify:"미시간대 독립 검증에서 널리 쓰이던 패혈증 AI가 환자의 67%를 놓쳤는데, 이미 쓰이던 AI도 검증에 실패했다면 허가제만으로 안전을 보장할 수 있습니까?"},
-      {side:"con", confirm:"TREWS 연구를 AI의 효과 근거로 드셨는데 맞습니까?", verify:"그 연구에서 최종 결정은 의료진이 했는데, 이것이 AI가 결정을 ‘대신’해야 한다는 근거가 될 수 있습니까?"},
-      {side:"pro", confirm:"인력 확충이 근본 해결책이라고 말씀하셨는데 맞습니까?", verify:"전문의 한 명을 키우는 데 10년 이상 걸리는데, 그동안의 응급 공백을 해결할 다른 방안이 있습니까?"},
-      {side:"pro", confirm:"AI 편향의 근거로 2019년 Science의 Obermeyer 연구를 드셨죠?", verify:"같은 연구에서 지표를 바꾸자 편향이 해소됐다고 했는데, 그래도 편향이 고칠 수 없는 문제라고 할 수 있습니까?"},
-      {side:"pro", confirm:"AI 보조 경고만으로 충분하다고 하셨는데 맞습니까?", verify:"약물 경고의 약 75%가 무시된다는 연구가 있는데, 무시되는 경고가 생명을 지킬 수 있습니까?"}
-    ],
-    speeches:{}, view:{x:40, y:40, k:.8}, imported:[]
-  };
+  const nodes = IKEYS.map(k => ({id:"h_"+k, kind:"issue", issue:k, title:ISSUES[k].name, reason:ISSUES[k].desc, x:0, y:0}));
+  const st = {topic:"AI가 의료진의 생명 관련 의사결정을 대신하는 것을 허용해야 한다", terms:[], background:[], nodes, edges:[], cx:[], speeches:{}, view:{x:60, y:120, k:1}, imported:[]};
   layout(st);
   return st;
 }
 
 /* ---------- 상태 ---------- */
+const ROOM = ((()=>{ try{ return decodeURIComponent(location.hash.slice(1)); }catch(e){ return ""; } })().replace(/[.#$\[\]\/\s]/g,"-").slice(0,40)) || "main";
+const LKEY = KEY + "-" + ROOM;
 let S;
-try { S = JSON.parse(localStorage.getItem(KEY)); } catch(e) { S = null; }
+try { S = JSON.parse(localStorage.getItem(LKEY)); } catch(e) { S = null; }
 if (!S || !Array.isArray(S.nodes)) S = seed();
-let saveT; function save(){ clearTimeout(saveT); saveT = setTimeout(()=>{ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }, 200); }
+let FB = null, last = null, pushT = null;
+const clean = o => JSON.parse(JSON.stringify(o ?? null));
+function shared(st){
+  const o = {meta:{topic:st.topic, terms:st.terms||[], background:st.background||[]}, nodes:{}, edges:{}, cx:st.cx||[], speeches:st.speeches||{}};
+  st.nodes.forEach(n => o.nodes[n.id] = clean(n)); st.edges.forEach(e => o.edges[e.id] = clean(e));
+  o.meta = clean(o.meta); o.cx = clean(o.cx); o.speeches = clean(o.speeches); return o;
+}
+function pushDiff(){
+  if (!FB || !last) return;
+  const cur = shared(S), upd = {}; const J = JSON.stringify;
+  for (const col of ["nodes","edges"]){
+    for (const id in cur[col]) if (J(cur[col][id]) !== J(last[col]?.[id])) upd[col+"/"+id] = cur[col][id];
+    for (const id in (last[col]||{})) if (!cur[col][id]) upd[col+"/"+id] = null;
+  }
+  for (const k of ["cx","speeches"]) if (J(cur[k]) !== J(last[k])) upd[k] = (Array.isArray(cur[k]) ? cur[k].length : Object.keys(cur[k]).length) ? cur[k] : null;
+  for (const k of ["topic","terms","background"]) if (J(cur.meta[k]) !== J(last.meta?.[k])) upd["meta/"+k] = cur.meta[k];
+  last = cur;
+  if (Object.keys(upd).length) FB.ref.update(upd).catch(() => toast("저장하지 못했습니다. 인터넷 연결을 확인해 주세요."));
+}
+function syncSoon(){ if (FB && !pushT) pushT = setTimeout(()=>{ pushT = null; pushDiff(); }, 150); }
+let saveT; function save(){ syncSoon(); clearTimeout(saveT); saveT = setTimeout(()=>{ try{ localStorage.setItem(LKEY, JSON.stringify(S)); }catch(e){} }, 200); }
 const byId = id => S.nodes.find(n=>n.id===id);
 let selected = null; // {type:'node'|'edge', id}
 let mode = "board";
@@ -473,7 +435,7 @@ board.addEventListener("pointermove", e => {
     if (!drag.moved && Math.abs(e.clientX-drag.sx)+Math.abs(e.clientY-drag.sy) < 5) return;
     drag.moved = true; const p = toWorld(e.clientX,e.clientY), n = byId(drag.id);
     n.x = Math.round(p.x-drag.dx); n.y = Math.round(p.y-drag.dy);
-    drag.el.style.left = n.x+"px"; drag.el.style.top = n.y+"px"; drawEdges();
+    drag.el.style.left = n.x+"px"; drag.el.style.top = n.y+"px"; drawEdges(); syncSoon();
   } else if (drag.type==="link"){
     const a = rectOf(drag.from), p = toWorld(e.clientX,e.clientY);
     $("#tempEdge").setAttribute("d", curve(a, {x:p.x, y:p.y, w:1, h:1}).d);
@@ -877,9 +839,9 @@ function renderSum(){
     <div class="sec"><h3><span class="no">1</span>논제 확인</h3>
       <p style="margin:0 0 8px"><b>${esc(S.topic)}</b> <span class="pill">정책 논제</span></p>
       <div class="flabel">주요 용어 정의</div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin:4px 0 10px">${S.terms.map((t,i)=>`<div class="row" style="flex-wrap:nowrap;align-items:flex-start"><input type="text" data-term="${i}" data-f="term" value="${esc(t.term)}" style="width:34%" aria-label="용어"><textarea data-term="${i}" data-f="def" style="min-height:40px" aria-label="정의">${esc(t.def)}</textarea></div>`).join("")}</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin:4px 0 10px">${S.terms.map((t,i)=>`<div class="row" style="flex-wrap:nowrap;align-items:flex-start"><input type="text" data-term="${i}" data-f="term" value="${esc(t.term)}" placeholder="용어" style="width:32%" aria-label="용어"><textarea data-term="${i}" data-f="def" placeholder="정의" style="min-height:40px" aria-label="정의">${esc(t.def)}</textarea><button class="btn ghost small" data-delterm="${i}" aria-label="용어 삭제">삭제</button></div>`).join("") || '<p class="muted small" style="margin:0">아직 정의한 용어가 없습니다.</p>'}<div><button class="btn small" id="addTerm">+ 용어 추가</button></div></div>
       <div class="flabel">문제 상황이 발생한 배경</div>
-      <textarea id="bgText" style="min-height:90px;margin-top:4px" aria-label="배경">${esc(S.background.join("\n"))}</textarea>
+      <textarea id="bgText" style="min-height:90px;margin-top:4px" aria-label="배경" placeholder="한 줄에 하나씩 적으세요.">${esc(S.background.join("\n"))}</textarea>
     </div>
     <div class="sec"><h3><span class="no">2</span>필수 쟁점 선정 <small>보드의 ‘주장’ 카드(반박이 아닌 것)</small></h3>
       <div class="tbl"><table><thead><tr><th style="width:90px">필수 쟁점</th><th class="pro">찬성 측</th><th class="con">반대 측</th></tr></thead><tbody>${sec2}</tbody></table></div>
@@ -905,6 +867,8 @@ function renderSum(){
     </div>`;
   sheet.querySelectorAll("[data-focus]").forEach(b => b.onclick = () => focusNode(b.dataset.focus));
   sheet.querySelectorAll("[data-term]").forEach(el => el.addEventListener("input", () => { S.terms[+el.dataset.term][el.dataset.f] = el.value; save(); }));
+  $("#addTerm").onclick = () => { S.terms.push({term:"", def:""}); save(); renderSum(); setTimeout(()=>sheet.querySelector(`[data-term="${S.terms.length-1}"][data-f="term"]`)?.focus(), 30); };
+  sheet.querySelectorAll("[data-delterm]").forEach(b => b.onclick = () => { S.terms.splice(+b.dataset.delterm,1); save(); renderSum(); });
   $("#bgText").addEventListener("input", e => { S.background = e.target.value.split("\n").map(s=>s.trim()).filter(Boolean); save(); });
   sheet.querySelectorAll("[data-our]").forEach(b => b.onclick = () => { ourSide = b.dataset.our; renderSum(); });
   sheet.querySelectorAll("[data-cx]").forEach(t => t.addEventListener("input", () => { S.cx[+t.dataset.cx][t.dataset.f] = t.value; save(); }));
@@ -1016,15 +980,68 @@ $("#loadFile").onchange = async (e) => {
   const f = e.target.files[0]; if (!f) return;
   try { const d = JSON.parse(await f.text()); if (!Array.isArray(d.nodes) || !Array.isArray(d.edges)) throw 0;
     const prev = S; S = d; selected = null; save(); renderBoard(); renderPanel(); if (mode!=="board") renderSum(); requestAnimationFrame(fit);
-    toast("파일을 불러왔습니다.", "되돌리기", () => { S = prev; save(); renderBoard(); if (mode!=="board") renderSum(); });
+    toast(FB ? "파일을 불러왔습니다. 같은 방의 모두에게 반영됩니다." : "파일을 불러왔습니다.", "되돌리기", () => { S = prev; save(); renderBoard(); if (mode!=="board") renderSum(); });
   } catch(err){ toast("보드 파일이 아닙니다. ‘파일로 저장’으로 만든 .json 파일을 골라 주세요."); }
   e.target.value = "";
 };
 
+/* ---------- Firebase 실시간 공유 ---------- */
+$("#roomName").textContent = "방: " + ROOM;
+$("#copyLink").onclick = () => copyText(location.href.split("#")[0] + "#" + encodeURIComponent(ROOM));
+const arr = x => Array.isArray(x) ? x.filter(Boolean) : Object.values(x || {});
+function applyRemote(v){
+  const keepId = drag?.type==="node" ? drag.id : null;
+  const editingId = (panel.contains(document.activeElement) && selected?.type==="node") ? selected.id : null;
+  const remoteNodes = Object.values(v.nodes || {});
+  S.nodes = remoteNodes.map(n => ((n.id===keepId || n.id===editingId) && byId(n.id)) ? byId(n.id) : n);
+  S.edges = Object.values(v.edges || {});
+  const m = v.meta || {};
+  if (m.topic) S.topic = m.topic;
+  const sumEditing = sheet.contains(document.activeElement);
+  if (!sumEditing){ S.terms = arr(m.terms); S.background = arr(m.background); S.cx = arr(v.cx); S.speeches = v.speeches || {}; }
+  last = {meta:{topic:m.topic, terms:arr(m.terms), background:arr(m.background)}, nodes:v.nodes||{}, edges:v.edges||{}, cx:arr(v.cx), speeches:v.speeches||{}};
+  last = clean(last);
+  renderBoard();
+  if (drag?.type==="node") drag.el = nodesEl.querySelector(`[data-id="${drag.id}"]`) || drag.el;
+  if (!panel.contains(document.activeElement)) renderPanel();
+  if (mode !== "board") queueSum();
+  try{ localStorage.setItem(LKEY, JSON.stringify(S)); }catch(e){}
+  syncSoon(); // 보내지 못한 내 수정이 있으면 이어서 보냄
+}
+function startSync(){
+  const st = $("#syncState");
+  const cfg = window.FIREBASE_CONFIG;
+  if (!cfg || !window.firebase){ st.textContent = "혼자 쓰는 중 (공유 설정 전)"; st.className = "pill off"; $("#copyLink").hidden = true; return; }
+  try{
+    const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(cfg);
+    const db = app.database(); const ref = db.ref("boards/" + ROOM);
+    FB = {db, ref};
+    st.textContent = "연결 중…"; st.className = "pill";
+    let online = 0;
+    db.ref(".info/connected").on("value", s => {
+      if (s.val() === true){ const me = db.ref("presence/" + ROOM).push(); me.onDisconnect().remove(); me.set(Date.now()); }
+      st.textContent = s.val() ? `실시간 공유 중 · ${online||1}명 접속` : "연결 끊김 · 다시 연결하는 중"; st.className = "pill " + (s.val() ? "live" : "off");
+    });
+    db.ref("presence/" + ROOM).on("value", s => { online = s.numChildren(); if (st.classList.contains("live")) st.textContent = `실시간 공유 중 · ${online}명 접속`; });
+    ref.on("value", snap => {
+      const v = snap.val();
+      if (!v || !v.nodes){
+        ref.child("meta/seededAt").transaction(cur => cur ? undefined : Date.now(), (err, committed) => {
+          if (committed){ last = {meta:{}, nodes:{}, edges:{}, cx:[], speeches:{}}; pushDiff(); }
+        });
+        return;
+      }
+      applyRemote(v);
+    }, err => { st.textContent = "공유 저장소에 접근할 수 없음 (규칙 확인)"; st.className = "pill off"; FB = null; });
+  }catch(e){ st.textContent = "공유 설정 오류"; st.className = "pill off"; FB = null; }
+}
+window.addEventListener("hashchange", () => location.reload());
+startSync();
+
 applyView(); renderBoard();
 let m0 = "board"; try{ m0 = localStorage.getItem(KEY+"-mode") || "board"; }catch(e){}
 setMode(m0);
-let firstVisit = true; try{ firstVisit = !localStorage.getItem(KEY); }catch(e){}
+let firstVisit = true; try{ firstVisit = !localStorage.getItem(LKEY); }catch(e){}
 if (firstVisit) requestAnimationFrame(fit);
 save();
 })();
