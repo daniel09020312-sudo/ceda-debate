@@ -350,9 +350,48 @@ function insertArgSet(){
   S.argset1 = true;
   return added;
 }
+
+/* ---------- 추가 근거 8개 (근거 카드 + 근거 선) ---------- */
+const EVSET = [
+ {id:"E1", use:"pro", issue:"cost", to:["a3_2"], t:"GPT-4 단독이 ‘GPT-4를 쓴 의사’보다 진단 점수가 높았다",
+  r:"의사 50명을 무작위로 나눈 시험에서 GPT-4를 함께 쓴 의사(76점)는 기존 자료만 쓴 의사(74점)와 큰 차이가 없었지만, GPT-4 단독은 약 92점이었다.",
+  s:"Goh 외, JAMA Network Open 2024 / 스탠퍼드 HAI", u:"https://hai.stanford.edu/news/can-ai-improve-medical-diagnostic-accuracy"},
+ {id:"E2", use:"both", issue:"problem", to:["a1_2"], t:"대화형 진단 AI가 1차 진료 의사보다 높게 평가됐다",
+  r:"159개 사례로 한 무작위 이중맹검 교차 비교에서 AI(AMIE)가 1차 진료 의사 20명보다 진단 정확도가 높았고, 전문의 평가 32개 항목 중 30개, 환자 역할 배우 평가 26개 중 25개에서 앞섰다. 다만 문자 상담 방식이라 실제 진료에 쓰기 전 추가 연구가 필요하다고 연구진이 밝혔다.",
+  s:"Tu 외, Nature 2025;642:442-450", u:"https://doi.org/10.1038/s41586-025-08866-7"},
+ {id:"E3", use:"con", issue:"solution", to:["a2_1"], t:"코로나19 예측 AI 606개 중 545개가 ‘비뚤림 위험 높음’",
+  r:"코로나19 예측 모델을 모은 체계적 문헌고찰(최종 업데이트)에서 예후 모델 606개 중 비뚤림 위험이 낮은 것은 29개뿐이고 545개가 높았다. 연구진은 위험이 낮은 모델도 실제 사용 전에 검증해야 한다고 했다.",
+  s:"Wynants 외, BMJ 2020;369:m1328 리빙 리뷰 (PMID 32265220)", u:"https://pubmed.ncbi.nlm.nih.gov/32265220/"},
+ {id:"E4", use:"con", issue:"cost", to:["b1_0"], t:"피부 질환 AI, 다양한 피부색에서 성능 29~40% 하락",
+  r:"병리로 확진된 다양한 피부색 이미지(DDI)로 시험하자 최신 피부 질환 AI들의 성능(ROC-AUC)이 원래 보고치보다 29~40% 떨어졌고, 어두운 피부색과 드문 질환에서 특히 낮았다.",
+  s:"Daneshjou 외, Science Advances 2022 (PMID 35960806)", u:"https://pubmed.ncbi.nlm.nih.gov/35960806/"},
+ {id:"E5", use:"both", issue:"problem", to:["b2_0","b1_1"], t:"미국인 60%, 의료진이 AI에 의존하면 불편",
+  r:"미국 성인 1만 1,004명 조사에서 60%가 의료진이 진단·치료 추천에 AI를 쓰면 불편하다고 했고, 57%는 환자-의사 관계가 나빠질 것이라 답했다. 반면 40%는 AI가 의료 실수를 줄일 것(늘 것 27%)이라 봤고, 인종 편향을 문제로 보는 사람 중 51%는 AI가 편향을 줄일 것이라 답했다.",
+  s:"Pew Research Center 2023.2.22 (2022년 12월 조사)", u:"https://www.pewresearch.org/science/2023/02/22/60-of-americans-would-be-uncomfortable-with-provider-relying-on-ai-in-their-own-health-care/"},
+ {id:"E6", use:"both", issue:"solution", to:["b3_0"], t:"국내 의료진 74%, ‘AI 오류 시 법적 책임 불분명’ 우려",
+  r:"국내 의료진 86%는 AI가 치료 결과를 개선할 것으로 봤지만, 74%는 AI 오류가 났을 때 법적 책임이 불분명한 점을 걱정했다. 환자는 60%가 AI에 긍정적이었고 46%는 대면 진료 시간이 줄까 걱정했다.",
+  s:"필립스 「미래건강지수 2025 한국 보고서」 / 뉴시스 2025.8.27", u:"https://www.newsis.com/view/NISX20250827_0003305005"},
+ {id:"E7", use:"pro", issue:"solution", to:["a2_2"], t:"FDA, 첫 AI 패혈증 진단 도구 허가(2024)",
+  r:"미국 FDA는 2024년 패혈증 위험을 예측·진단하는 AI ‘Sepsis ImmunoScore’를 처음 허가했다. 환자 2만 5천여 명의 혈액 샘플 10만여 개로 개발됐고, 22개 지표로 위험을 4단계로 나눠 전자의무기록에 표시한다.",
+  s:"HPN 2024.4.3 (Prenosis 발표)", u:"https://hpnonline.com/infection-prevention/article/55001937/fda-approves-ai-device-used-to-predict-and-diagnose-sepsis"},
+ {id:"E8", use:"both", issue:"solution", to:["b3_0","a2_2"], t:"‘설명 가능한 AI’로는 환자 한 명의 결정을 설명하기 어렵다",
+  r:"현재의 설명 가능 AI 방법은 개별 환자의 결정을 뒷받침할 설명을 주기 어렵다. 연구진은 설명을 요구하기보다 엄격한 내부·외부 검증으로 신뢰를 확보해야 한다고 주장했다.",
+  s:"Ghassemi 외, The Lancet Digital Health 2021", u:"https://doaj.org/article/355ffa5c85d544cda02dc0e2d717f714"}
+];
+EVSET.forEach(e => { const l = {id:"N"+e.id, use:e.use, issue:e.issue, title:e.t, summary:e.r, cite:e.s, url:e.u}; LIBRARY.push(l); LIB[l.id] = l; });
+function insertEvidenceSet(){
+  let added = 0;
+  EVSET.forEach(ev => {
+    const id = "ev_" + ev.id;
+    if (!byId(id)){ S.nodes.push({id, kind:"src", lib:"N"+ev.id, title:ev.t, reason:ev.r, source:ev.s, url:ev.u, use:ev.use, x:0, y:0}); added++; }
+    ev.to.forEach(t => { const eid = "es_" + ev.id + "_" + t; if (byId(t) && !S.edges.some(x=>x.id===eid)) S.edges.push({id:eid, from:id, to:t, kind:"support"}); });
+  });
+  S.argset2 = true;
+  return added;
+}
 function afterArgSet(n){
   layout(); renderBoard(); save(); requestAnimationFrame(fit); queueSum();
-  if (n) toast(`검증 논증 ${ARGSET.length}개(카드 ${n}장)를 보드에 넣었습니다.`);
+  if (n) toast(`카드 ${n}장을 보드에 넣었습니다.`);
 }
 
 
@@ -422,21 +461,29 @@ function layout(st){
   const md = (n, seen=new Set()) => { if (seen.has(n.id)) return 0; seen.add(n.id); const k = kids(n.id); return k.length ? 1 + Math.max(...k.map(c=>md(c,seen))) : 0; };
   const roots = g.nodes.filter(isRoot);
   const cols = side => Math.max(3, ...roots.filter(r=>(r.side==="con"?"con":"pro")===side).map(r=>md(r)+1));
-  const laneX = {pro:X0, con:X0 + cols("pro")*COLW + LANE_GAP};
-  const srcX = laneX.con + cols("con")*COLW + 90;
+  const supTo = id => g.edges.filter(e=>e.kind==="support" && e.from===id).map(e=>find(e.to)).filter(Boolean);
+  const rootSide = n => { let cur = n, k = 0; while (k++ < 12){ const t = g.edges.find(e=>e.kind==="rebut" && e.from===cur.id); if (!t) break; cur = find(t.to) || cur; } return cur.side==="con" ? "con" : "pro"; };
+  const srcSide = n => { const t = supTo(n.id).find(x=>x.kind==="claim"); return t ? rootSide(t) : null; };
+  const hasSrc = side => g.nodes.some(n=>n.kind==="src" && srcSide(n)===side);
+  const SRCW = 270, SRCH = 150;
+  const laneX = {pro:X0}; laneX.con = X0 + cols("pro")*COLW + (hasSrc("pro") ? SRCW : 0) + LANE_GAP;
+  const srcX = {pro: X0 + cols("pro")*COLW + 10, con: laneX.con + cols("con")*COLW + 10};
   let y0 = TOP; const placed = new Set();
   const bands = [...IKEYS.map(k=>({k, roots:roots.filter(n=>n.issue===k)})), {k:null, roots:roots.filter(n=>!IKEYS.includes(n.issue))}];
   for (const b of bands){
     if (b.k===null && !b.roots.length) continue;
-    const rows = {pro:0, con:0}; const bandNodes = [];
+    const rows = {pro:0, con:0}; const bandNodes = {pro:[], con:[]}; let srcRows = 0;
     for (const side of ["pro","con"]){
-      const place = (n, d) => { if (placed.has(n.id)) return; placed.add(n.id); n.x = laneX[side] + d*COLW; n.y = y0 + rows[side]*ROWH; bandNodes.push(n);
+      const place = (n, d) => { if (placed.has(n.id)) return; placed.add(n.id); n.x = laneX[side] + d*COLW; n.y = y0 + rows[side]*ROWH; bandNodes[side].push(n);
         const ks = kids(n.id); if (!ks.length){ rows[side]++; return; } ks.forEach(k => place(k, d+1)); };
       b.roots.filter(r=>(r.side==="con"?"con":"pro")===side).sort((p,q)=>p.y-q.y).forEach(r => place(r, 0));
     }
-    const srcs = g.nodes.filter(n=>n.kind==="src" && !placed.has(n.id) && g.edges.some(e=>e.kind==="support" && e.from===n.id && bandNodes.some(x=>x.id===e.to)));
-    srcs.forEach((s2,i) => { placed.add(s2.id); s2.x = srcX + (i%2)*240; s2.y = y0 + Math.floor(i/2)*ROWH; });
-    const nrows = Math.max(rows.pro, rows.con, Math.ceil(srcs.length/2), 1);
+    for (const side of ["pro","con"]){
+      const srcs = g.nodes.filter(n=>n.kind==="src" && !placed.has(n.id) && srcSide(n)===side && supTo(n.id).some(t=>bandNodes[side].includes(t)));
+      srcs.forEach((s2,i) => { placed.add(s2.id); s2.x = srcX[side]; s2.y = y0 + i*SRCH; });
+      srcRows = Math.max(srcRows, Math.ceil(srcs.length*SRCH/ROWH));
+    }
+    const nrows = Math.max(rows.pro, rows.con, srcRows, 1);
     if (b.k){ const h = find("h_"+b.k); if (h){ placed.add(h.id); h.x = 0; h.y = y0 + (nrows-1)*ROWH/2; } }
     y0 += nrows*ROWH + BAND_GAP;
   }
@@ -510,9 +557,11 @@ function drawEdgesNow(){
 function drawLanes(){
   const box = {};
   for (const n of S.nodes){
-    if (n.kind!=="claim") continue;
+    let s;
+    if (n.kind==="claim") s = rootOf(n).side==="con" ? "con" : "pro";
+    else if (n.kind==="src"){ const t = S.edges.filter(e=>e.kind==="support" && e.from===n.id).map(e=>byId(e.to)).find(x=>x && x.kind==="claim"); if (!t) continue; s = rootOf(t).side==="con" ? "con" : "pro"; }
+    else continue;
     const r = rectOf(n.id); if (!r) continue;
-    const s = rootOf(n).side==="con" ? "con" : "pro";
     const b = box[s] || (box[s] = {x0:Infinity, y0:Infinity, x1:-Infinity, y1:-Infinity});
     b.x0 = Math.min(b.x0, r.x); b.y0 = Math.min(b.y0, r.y); b.x1 = Math.max(b.x1, r.x+r.w); b.y1 = Math.max(b.y1, r.y+r.h);
   }
@@ -771,7 +820,7 @@ function renderLib(){
       <textarea id="srcText" placeholder="기사·논문 내용을 복사해 붙여 넣으세요. 쟁점별 카드로 나눠 보드에 추가합니다." style="min-height:110px"></textarea>
       <div class="row"><button class="btn primary" id="organize">${document.documentElement.classList.contains("noai")?"쟁점별로 분류해서 보드에 추가":"자동 정리해서 보드에 추가"}</button><button class="btn ghost" id="stopOrg" hidden>중지</button></div>
       <div class="status" id="orgStatus"></div>
-      <button class="btn src" id="putArgs">검증 논증 6개 보드에 넣기 (입론→반론→재반박)</button>
+      <button class="btn src" id="putArgs">검증 논증 6개 + 추가 근거 8개 보드에 넣기</button>
     </div>
     <hr class="sep">
     <div class="head"><div class="flabel">검증한 자료 ${LIBRARY.length}개 · 출처 링크로 원문 확인</div></div>
@@ -794,7 +843,7 @@ function renderLib(){
   });
   lib.querySelectorAll("[data-golib]").forEach(b => b.onclick = () => { const n = S.nodes.find(x=>x.lib===b.dataset.golib); if (n){ lib.hidden = true; focusNode(n.id); } });
   $("#organize").onclick = organize;
-  $("#putArgs").onclick = () => { const n = insertArgSet(); if (n) { lib.hidden = true; afterArgSet(n); } else toast("이미 보드에 모두 들어 있습니다."); };
+  $("#putArgs").onclick = () => { const n = insertArgSet() + insertEvidenceSet(); if (n) { lib.hidden = true; afterArgSet(n); } else toast("이미 보드에 모두 들어 있습니다."); };
   $("#stopOrg").onclick = () => orgCtl?.abort();
 }
 
@@ -1131,12 +1180,12 @@ function applyRemote(v){
   try{ localStorage.setItem(LKEY, JSON.stringify(S)); }catch(e){}
   syncSoon(); // 보내지 못한 내 수정이 있으면 이어서 보냄
 }
-let argTried = false;
+let argTried = false, evTried = false;
 function startSync(){
   const st = $("#syncState");
   const cfg = window.FIREBASE_CONFIG;
   if (!cfg || !window.firebase){ st.textContent = "혼자 쓰는 중 (공유 설정 전)"; st.className = "pill off"; $("#copyLink").hidden = true;
-    if (ROOM==="main" && !S.argset1) setTimeout(() => afterArgSet(insertArgSet()), 0); return; }
+    if (ROOM==="main" && (!S.argset1 || !S.argset2)) setTimeout(() => afterArgSet((S.argset1 ? 0 : insertArgSet()) + insertEvidenceSet()), 0); return; }
   try{
     const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(cfg);
     const db = app.database(); const ref = db.ref("boards/" + ROOM);
@@ -1159,7 +1208,10 @@ function startSync(){
       applyRemote(v);
       if (ROOM==="main" && !(v.meta && v.meta.argset1) && !argTried){
         argTried = true;
-        ref.child("meta/argset1").transaction(cur => cur ? undefined : Date.now(), (err, committed) => { if (committed) afterArgSet(insertArgSet()); });
+        ref.child("meta/argset1").transaction(cur => cur ? undefined : Date.now(), (err, committed) => { if (committed) afterArgSet(insertArgSet() + insertEvidenceSet()); });
+      } else if (ROOM==="main" && v.meta && v.meta.argset1 && !v.meta.argset2 && !evTried){
+        evTried = true;
+        ref.child("meta/argset2").transaction(cur => cur ? undefined : Date.now(), (err, committed) => { if (committed) afterArgSet(insertEvidenceSet()); });
       }
     }, err => { st.textContent = "공유 저장소에 접근할 수 없음 (규칙 확인)"; st.className = "pill off"; FB = null; });
   }catch(e){ st.textContent = "공유 설정 오류"; st.className = "pill off"; FB = null; }
