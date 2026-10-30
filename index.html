@@ -85,13 +85,6 @@ main.split{grid-template-columns:minmax(0,calc(var(--sp) * 1%)) 12px minmax(0,1f
 .lt.pro{background:var(--pro-soft);color:var(--pro)}.lt.con{background:var(--con-soft);color:var(--con)}
 .nd.issue{cursor:default}
 .lock{font-size:10.5px;font-weight:700;opacity:.7;margin-left:6px}
-#lens{position:fixed;z-index:15;width:min(400px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:hidden;background:var(--surface);border:2px solid var(--fg);border-radius:14px;padding:14px 18px 16px;box-shadow:0 12px 40px rgb(0 0 0 / .22);font-size:15.5px;line-height:1.65;pointer-events:none;display:flex;flex-direction:column;gap:8px}
-#lens .lk{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.03em}
-#lens .lt{font-size:12px}
-#lens h5{margin:0;font-size:18px;line-height:1.45}
-#lens p{margin:0}
-#lens .ev{background:var(--bg);border-radius:8px;padding:8px 10px;font-size:14.5px}
-#lens .so{font-size:13px;color:var(--muted)}
 .btn[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 
 /* ---------- 보드 ---------- */
@@ -156,7 +149,7 @@ textarea{resize:vertical;min-height:58px}
 hr.sep{border:0;border-top:1px solid var(--line);margin:4px 0;width:100%}
 
 /* ---------- 최종 정리 창 ---------- */
-#sumWrap{min-height:0;min-width:0;overflow-y:auto;background:var(--sunk);border-left:2px solid var(--fg)}
+#sumWrap{min-height:0;min-width:0;overflow-y:auto;touch-action:pan-x pan-y;background:var(--sunk);border-left:2px solid var(--fg)}
 @media (max-width:860px){#sumWrap{border-left:0;border-top:2px solid var(--fg)}}
 main:not(.split) #sumWrap{border:0}
 .sheet{max-width:880px;margin:0 auto;padding-block:18px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
@@ -240,7 +233,7 @@ main.split .grid2{grid-template-columns:minmax(0,1fr)}
           <button class="btn src" data-add="src">+ 근거</button>
           <button class="btn memo" data-add="memo">+ 메모</button>
         </div>
-        <span class="hint" id="hint">카드를 끌어 옮기고 ● 점을 끌어 이으세요. 쟁점 카드는 고정돼 있어요.</span>
+        <span class="hint" id="hint">두 손가락으로 벌리면 확대, 함께 끌면 이동해요. 카드는 끌어 옮기고 ● 점을 끌어 이으세요.</span>
       </div>
       <div class="hud bl">
         <div class="grp">
@@ -249,7 +242,6 @@ main.split .grid2{grid-template-columns:minmax(0,1fr)}
           <button class="btn" id="zIn" aria-label="확대">+</button>
           <button class="btn" id="zFit">전체 보기</button>
           <button class="btn" id="layoutBtn">자동 정렬</button>
-          <button class="btn" id="lensBtn" aria-pressed="false" title="카드에 마우스를 올리면 크게 보여 줍니다">돋보기</button>
           <button class="btn" id="saveFile">파일로 저장</button>
           <label class="btn" for="loadFile" style="cursor:pointer">파일 불러오기</label><input type="file" id="loadFile" accept=".json,application/json" hidden>
         </div>
@@ -265,7 +257,6 @@ main.split .grid2{grid-template-columns:minmax(0,1fr)}
   </main>
 </div>
 <div class="toast" id="toast" hidden></div>
-<div id="lens" hidden aria-hidden="true"></div>
 
 <script>
 (() => {
@@ -592,7 +583,7 @@ board.addEventListener("keydown", e => {
 });
 function zoomAt(cx, cy, f){
   const r = board.getBoundingClientRect(), v = S.view;
-  const k = Math.min(2, Math.max(.25, v.k*f)); const wx = (cx-r.left-v.x)/v.k, wy = (cy-r.top-v.y)/v.k;
+  const k = Math.min(2.5, Math.max(.2, v.k*f)); const wx = (cx-r.left-v.x)/v.k, wy = (cy-r.top-v.y)/v.k;
   v.k = k; v.x = cx-r.left-wx*k; v.y = cy-r.top-wy*k; applyView(); save();
 }
 $("#zIn").onclick = () => { const r = board.getBoundingClientRect(); zoomAt(r.left+r.width/2, r.top+r.height/2, 1.2); };
@@ -1195,35 +1186,48 @@ splitter.addEventListener("keydown", e => {
 
 /* ---------- 정리 창 글자 크기 ---------- */
 var sheetZoom = 1; try { sheetZoom = +localStorage.getItem(KEY+"-sz") || 1; } catch(e){}
-function setSheetZoom(z){ sheetZoom = Math.round(Math.min(1.8, Math.max(.7, z))*10)/10; sheet.style.zoom = sheetZoom; const v = $("#szV"); if (v) v.textContent = Math.round(sheetZoom*100)+"%"; try{ localStorage.setItem(KEY+"-sz", sheetZoom); }catch(e){} }
+function setSheetZoom(z){ sheetZoom = Math.round(Math.min(2, Math.max(.6, z))*100)/100; sheet.style.zoom = sheetZoom; const v = $("#szV"); if (v) v.textContent = Math.round(sheetZoom*100)+"%"; try{ localStorage.setItem(KEY+"-sz", sheetZoom); }catch(e){} }
 setSheetZoom(sheetZoom);
 
-/* ---------- 돋보기 ---------- */
-const lens = $("#lens"), lensBtn = $("#lensBtn");
-let lensOn = false; try { lensOn = localStorage.getItem(KEY+"-lens") === "1"; } catch(e){}
-const setLens = on => { lensOn = on; lensBtn.setAttribute("aria-pressed", on); if (!on) lens.hidden = true; try{ localStorage.setItem(KEY+"-lens", on?"1":"0"); }catch(e){} };
-setLens(lensOn);
-lensBtn.onclick = () => { setLens(!lensOn); toast(lensOn ? "돋보기를 켰습니다. 카드에 마우스를 올리면 크게 보입니다." : "돋보기를 껐습니다."); };
-function showLens(el){
-  const n = byId(el.dataset.id); if (!n) return;
-  let h = "";
-  if (n.kind==="claim"){
-    h = `<div class="lk">${laneTag(n)}${roleName(n)}${n.issue?` · ${ISSUES[n.issue].name}`:""}</div><h5>${esc(n.title)}</h5>${n.reason?`<p>${esc(n.reason)}</p>`:""}${evText(n).map(x=>`<p class="ev">${esc(x)}</p>`).join("")}${srcText(n).length?`<p class="so">출처: ${srcText(n).map(esc).join(" · ")}</p>`:""}`;
-  } else if (n.kind==="issue"){
-    h = `<div class="lk">${ISSUES[n.issue].no} · 고정</div><h5>${esc(n.title)}</h5><p>${esc(n.reason)}</p>`;
-  } else {
-    h = `<div class="lk">${n.kind==="src"?"근거 자료":"메모"}</div><h5>${esc(n.title)}</h5>${n.reason?`<p>${esc(n.reason)}</p>`:""}${n.source?`<p class="so">출처: ${esc(n.source)}</p>`:""}`;
-  }
-  lens.innerHTML = h; lens.hidden = false;
-  const r = el.getBoundingClientRect(), W = lens.offsetWidth, H = lens.offsetHeight, M = 12;
-  let x = r.right + M; if (x + W > innerWidth - 16) x = r.left - W - M; if (x < 16) x = Math.min(innerWidth - W - 16, Math.max(16, r.left));
-  let y = Math.min(Math.max(16, r.top), innerHeight - H - 16);
-  lens.style.left = x + "px"; lens.style.top = y + "px";
+/* ---------- 두 손가락: 벌리고 오므려 확대·축소, 함께 끌어 이동 ---------- */
+function twoFinger(el, onStart, onMove){
+  const pts = new Map(); let g = null, block = false;
+  const dist = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x-b.x, a.y-b.y) || 1; };
+  const mid = () => { const [a, b] = [...pts.values()]; return {x:(a.x+b.x)/2, y:(a.y+b.y)/2}; };
+  el.addEventListener("pointerdown", e => {
+    if (e.pointerType !== "touch") return;
+    pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if (pts.size === 2){ e.stopImmediatePropagation(); e.preventDefault(); try{ el.setPointerCapture(e.pointerId); }catch(_){} g = {d:dist(), m:mid(), ...onStart()}; block = true; }
+  }, true);
+  el.addEventListener("pointermove", e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if (g && pts.size >= 2){ e.stopImmediatePropagation(); e.preventDefault(); onMove(g, dist()/g.d, mid()); }
+    else if (block) e.stopImmediatePropagation();
+  }, true);
+  const up = e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId);
+    if (pts.size < 2) g = null;
+    if (block){ e.stopImmediatePropagation(); if (!pts.size) block = false; }
+  };
+  el.addEventListener("pointerup", up, true); el.addEventListener("pointercancel", up, true);
 }
-board.addEventListener("pointerover", e => { if (!lensOn || drag || e.pointerType === "touch") return; const el = e.target.closest(".nd"); if (el) showLens(el); });
-board.addEventListener("pointerout", e => { if (!lensOn) return; const el = e.target.closest(".nd"); if (el && !el.contains(e.relatedTarget)) lens.hidden = true; });
-board.addEventListener("pointerdown", () => { lens.hidden = true; });
-board.addEventListener("wheel", () => { lens.hidden = true; }, {passive:true});
+// 보드: 두 손가락 사이 지점을 기준으로 확대·축소하면서 함께 이동
+twoFinger(board, () => {
+  if (drag){ if (drag.type==="node"){ const n = byId(drag.id); if (n && drag.moved) save(); } $("#tempEdge").setAttribute("d",""); dropEl?.classList.remove("drop"); dropEl = null; drag = null; board.classList.remove("panning"); }
+  return {v:{...S.view}};
+}, (g, ratio, m) => {
+  const r = board.getBoundingClientRect(), v0 = g.v;
+  const k = Math.min(2.5, Math.max(.2, v0.k * ratio));
+  const wx = (g.m.x - r.left - v0.x) / v0.k, wy = (g.m.y - r.top - v0.y) / v0.k;
+  S.view = {k, x: m.x - r.left - wx*k, y: m.y - r.top - wy*k}; applyView(); save();
+});
+// 정리 창: 두 손가락으로 글자 크기 조절 (한 손가락은 그대로 스크롤)
+const sumWrapEl = $("#sumWrap");
+twoFinger(sumWrapEl, () => ({z:sheetZoom, sy:sumWrapEl.scrollTop}), (g, ratio) => { setSheetZoom(g.z * ratio); });
+sumWrapEl.addEventListener("wheel", e => { if (!(e.ctrlKey || e.metaKey)) return; e.preventDefault(); setSheetZoom(sheetZoom * Math.exp(-e.deltaY*0.01)); }, {passive:false});
+
 window.addEventListener("hashchange", () => location.reload());
 startSync();
 
