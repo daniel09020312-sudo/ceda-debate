@@ -63,9 +63,36 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .tag{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:700}
 .tag.pro{background:var(--pro-soft);color:var(--pro)}.tag.con{background:var(--con-soft);color:var(--con)}.tag.src{background:var(--src-soft);color:var(--src)}
 
-main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr)}
-main.split{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
-@media (max-width:860px){main.split{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)}}
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);--sp:56}
+main.split{grid-template-columns:minmax(0,calc(var(--sp) * 1%)) 12px minmax(0,1fr)}
+#splitter{background:var(--sunk);cursor:col-resize;position:relative;touch-action:none;border-inline:1px solid var(--line)}
+#splitter::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:48px;margin:-24px 0 0 -2px;border-radius:2px;background:var(--muted)}
+#splitter:hover::after,#splitter.drag::after,#splitter:focus-visible::after{background:var(--fg)}
+@media (max-width:860px){
+  main.split{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,calc(var(--sp) * 1%)) 12px minmax(0,1fr)}
+  #splitter{cursor:row-resize;border-inline:0;border-block:1px solid var(--line)}
+  #splitter::after{width:48px;height:4px;margin:-2px 0 0 -24px}
+}
+#lanes{position:absolute;left:0;top:0}
+.lanebox{position:absolute;border:2px dashed;border-radius:20px;pointer-events:none}
+.lanebox.pro{border-color:color-mix(in srgb,var(--pro) 45%,transparent);background:color-mix(in srgb,var(--pro) 6%,transparent)}
+.lanebox.con{border-color:color-mix(in srgb,var(--con) 45%,transparent);background:color-mix(in srgb,var(--con) 6%,transparent)}
+.lanebox .lh{position:absolute;left:20px;top:12px;display:flex;gap:10px;align-items:baseline;white-space:nowrap}
+.lanebox .lh b{font-family:var(--display);font-weight:400;font-size:22px}
+.lanebox.pro .lh b{color:var(--pro)}.lanebox.con .lh b{color:var(--con)}
+.lanebox .lh span{font-size:13px;color:var(--muted);font-weight:600}
+.lt{display:inline-block;font-size:10.5px;font-weight:700;padding:0 6px;border-radius:5px;margin-right:4px}
+.lt.pro{background:var(--pro-soft);color:var(--pro)}.lt.con{background:var(--con-soft);color:var(--con)}
+.nd.issue{cursor:default}
+.lock{font-size:10.5px;font-weight:700;opacity:.7;margin-left:6px}
+#lens{position:fixed;z-index:15;width:min(400px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:hidden;background:var(--surface);border:2px solid var(--fg);border-radius:14px;padding:14px 18px 16px;box-shadow:0 12px 40px rgb(0 0 0 / .22);font-size:15.5px;line-height:1.65;pointer-events:none;display:flex;flex-direction:column;gap:8px}
+#lens .lk{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.03em}
+#lens .lt{font-size:12px}
+#lens h5{margin:0;font-size:18px;line-height:1.45}
+#lens p{margin:0}
+#lens .ev{background:var(--bg);border-radius:8px;padding:8px 10px;font-size:14.5px}
+#lens .so{font-size:13px;color:var(--muted)}
+.btn[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 
 /* ---------- 보드 ---------- */
 #boardWrap{position:relative;min-height:0;min-width:0;overflow:hidden}
@@ -96,6 +123,7 @@ main.split{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
 .port{position:absolute;right:-9px;top:50%;width:18px;height:18px;margin-top:-9px;border-radius:50%;background:var(--surface);border:2px solid var(--muted);cursor:crosshair;display:grid;place-items:center;font-size:12px;line-height:1;color:var(--muted);font-weight:700}
 .port:hover{border-color:var(--fg);color:var(--fg)}
 .nd.issue .port{display:none}
+.chainline{display:flex;flex-direction:column;gap:2px;border-top:1px dashed var(--line);padding-top:5px;margin-top:3px}
 
 .hud{position:absolute;display:flex;gap:6px;flex-wrap:wrap;align-items:center;z-index:5}
 .hud.tl{left:max(12px,env(safe-area-inset-left,0px));top:12px;right:12px;pointer-events:none}
@@ -188,6 +216,7 @@ main.split .grid2{grid-template-columns:minmax(0,1fr)}
     <section id="boardWrap" aria-label="브레인스토밍 보드">
       <div id="board">
         <div id="world">
+          <div id="lanes" aria-hidden="true"></div>
           <svg id="edges" aria-hidden="true">
             <defs>
               <marker id="m-pro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--pro)"/></marker>
@@ -211,7 +240,7 @@ main.split .grid2{grid-template-columns:minmax(0,1fr)}
           <button class="btn src" data-add="src">+ 근거</button>
           <button class="btn memo" data-add="memo">+ 메모</button>
         </div>
-        <span class="hint" id="hint">카드를 끌어 옮기고, 오른쪽 ● 점을 끌어 다른 카드에 놓으면 연결됩니다.</span>
+        <span class="hint" id="hint">카드를 끌어 옮기고 ● 점을 끌어 이으세요. 쟁점 카드는 고정돼 있어요.</span>
       </div>
       <div class="hud bl">
         <div class="grp">
@@ -220,6 +249,7 @@ main.split .grid2{grid-template-columns:minmax(0,1fr)}
           <button class="btn" id="zIn" aria-label="확대">+</button>
           <button class="btn" id="zFit">전체 보기</button>
           <button class="btn" id="layoutBtn">자동 정렬</button>
+          <button class="btn" id="lensBtn" aria-pressed="false" title="카드에 마우스를 올리면 크게 보여 줍니다">돋보기</button>
           <button class="btn" id="saveFile">파일로 저장</button>
           <label class="btn" for="loadFile" style="cursor:pointer">파일 불러오기</label><input type="file" id="loadFile" accept=".json,application/json" hidden>
         </div>
@@ -228,12 +258,14 @@ main.split .grid2{grid-template-columns:minmax(0,1fr)}
       <aside class="drawer" id="panel" hidden aria-label="카드 편집"></aside>
     </section>
 
+    <div id="splitter" role="separator" aria-orientation="vertical" aria-label="창 크기 조절 (방향키로도 조절)" tabindex="0" hidden></div>
     <section id="sumWrap" hidden aria-label="최종 정리 창">
       <div class="sheet" id="sheet"></div>
     </section>
   </main>
 </div>
 <div class="toast" id="toast" hidden></div>
+<div id="lens" hidden aria-hidden="true"></div>
 
 <script>
 (() => {
@@ -271,6 +303,67 @@ const LIBRARY = [
  {id:"L17", use:"con", issue:"cost", title:"연명의료결정법: 의사 2명이 판단", summary:"임종 과정에 있는지는 담당의사와 해당 분야 전문의 1명이 함께 판단하고, 환자·가족의 의사를 확인하도록 정한다. 생명 결정에 사람의 판단과 환자 의사를 이중으로 요구하는 구조다.", cite:"「연명의료결정법」 — 국가법령정보센터에서 조문 확인", url:"https://www.law.go.kr"}
 ];
 const LIB = Object.fromEntries(LIBRARY.map(l=>[l.id,l]));
+/* ---------- 검증 논증 세트: 입론 → 반론 → 재반박 6개 ---------- */
+const SRC = {
+  nt:{s:"Newman-Toker 외, BMJ Quality & Safety 2024", u:"https://qualitysafety.bmj.com/content/33/2/109"},
+  ret:{s:"소방청 제출 자료 / 뉴시스 2024.10.3", u:"https://www.newsis.com/view/NISX20241002_0002907214"},
+  oecd:{s:"보건복지부, 「OECD 보건통계 2025」 요약 / 머니투데이 2025.7.30", u:"https://v.daum.net/v/20250730120211607"},
+  trews:{s:"Adams 외, Nature Medicine 2022 (PMID 35864252)", u:"https://pubmed.ncbi.nlm.nih.gov/35864252/"},
+  epic:{s:"Wong 외, JAMA Internal Medicine 2021 (PMID 34152373)", u:"https://jamanetwork.com/journals/jamainternalmedicine/fullarticle/2781313"},
+  mfds:{s:"식품의약품안전처 발표 / 데일리팜 2025.8.19", u:"https://dailypharm.com/user/news/2997"},
+  masai:{s:"Lång 외, Lancet Oncology 2023 (MASAI 무작위 대조 시험)", u:"https://www.sciencedaily.com/releases/2023/08/230801200759.htm"},
+  drat:{s:"Dratsch 외, Radiology 2023 / 북미영상의학회 보도자료", u:"https://www.rsna.org/media/press/i/2432"},
+  ober:{s:"Obermeyer 외, Science 2019 (PMID 31649194)", u:"https://pubmed.ncbi.nlm.nih.gov/31649194/"},
+  benz:{s:"Benzinger 외, BMC Medical Ethics 2023 (PMID 37415172) / WHO 2021", u:"https://pmc.ncbi.nlm.nih.gov/articles/PMC10327319/"},
+  shal:{s:"Shalowitz 외, Archives of Internal Medicine 2006 (PMID 16534034)", u:"https://pubmed.ncbi.nlm.nih.gov/16534034/"},
+  law:{s:"의료법 제27조 / 법률신문 2026.8.20 / 뉴시스 2024.12.26", u:"https://www.lawtimes.co.kr/news/articleViewAmp.html?idxno=225090"},
+  idx:{s:"Abràmoff 외, npj Digital Medicine 2018 / 디지털데일리 2025.10.18", u:"https://iro.uiowa.edu/esploro/outputs/journalArticle/Pivotal-trial-of-an-autonomous-AI-based/9983806385302771"}
+};
+const ARGSET = [
+ {id:"a1", side:"pro", issue:"problem", c:[
+  ["진단 오류로 매년 수십만 명이 죽거나 영구 장애를 입는다", "사람의 판단만으로는 오류를 막기 어렵다. 특히 뇌졸중·패혈증처럼 몇 시간 안에 생사가 갈리는 질환에서 피해가 몰린다.", "미국에서 진단 오류로 사망하거나 영구 장애를 입는 사람은 한 해 약 79만 5천 명(추정 범위 59만 8천~102만 3천 명)이다. 피해의 절반(50.7%)이 혈관 질환·감염·암의 15개 질환에서 나오고, 뇌졸중·패혈증·폐렴·정맥혈전색전증·폐암 5개가 38.7%를 차지한다.", "nt"],
+  ["원인은 의사의 판단이 아니라 의사 부족과 과로다", "응급환자를 받지 못한 이유의 절반 가까이가 ‘전문의가 없어서’였다. 의사가 없어서 생긴 문제라면 처방은 AI 대체가 아니라 인력 확충과 체계 개선이다. 79만 명은 미국 추정치이고 범위도 넓어 한국에 그대로 옮길 수 없다.", "2024년 추석 연휴 전후 119 재이송 259건 중 48.2%의 사유가 ‘전문의 부재’였다.", "ret"],
+  ["바로 그 의사 공백을 지금 메울 수단이 AI다", "전문의 한 명을 키우는 데 10년 넘게 걸린다. 인력이 늘어나기를 기다리는 동안에도 환자는 생긴다. 추정 범위의 가장 낮은 값(약 60만 명)만 봐도 피해는 크다.", "한국의 인구 1,000명당 임상의사는 2.66명으로 OECD 평균 3.86명에 크게 못 미친다(2023년 기준).", "oecd"]]},
+ {id:"a2", side:"pro", issue:"solution", c:[
+  ["실제 병원에서 AI 조기경보가 사망률을 낮췄다", "AI는 수많은 환자의 데이터를 쉬지 않고 살펴 위험 신호를 사람보다 빨리 잡는다. 생명이 걸린 판단에서는 속도가 곧 생존율이다.", "존스홉킨스 5개 병원에서 59만 736명을 전향적으로 추적한 결과, AI 패혈증 경보를 3시간 안에 확인한 환자군의 사망률이 3.3%p(상대적으로 18.7%) 낮았다.", "trews"],
+  ["같은 패혈증 AI가 다른 병원에서는 환자 3명 중 2명을 놓쳤다", "개발한 곳에서 잘 되던 AI도 다른 병원에서는 성능이 크게 떨어진다. 게다가 TREWS의 효과는 의료진이 경보를 ‘확인’했을 때의 결과여서, AI가 결정을 대신해도 된다는 근거가 아니다.", "미국에서 널리 쓰인 Epic 패혈증 모델을 미시간대 병원 입원 27,697건으로 독립 검증한 결과 AUC 0.63(회사 발표 0.76~0.83)이었고, 패혈증 환자의 67%를 놓쳤으며 입원 환자의 18%에 경보가 울렸다.", "epic"],
+  ["두 결과의 차이는 ‘독립 검증’을 거쳤느냐다", "TREWS는 여러 병원에서 전향적으로 검증받았고, Epic 모델은 공개 검증 없이 퍼졌다. 문제는 AI 자체가 아니라 검증 제도다. 독립 임상시험을 통과한 AI에만 결정을 허용하면 된다.", "국내에도 식약처의 디지털의료기기 허가·임상시험 승인 제도가 있다(2025년 7월 기준 누적 허가 388건, 임상 승인 225건).", "mfds"]]},
+ {id:"a3", side:"pro", issue:"cost", c:[
+  ["AI는 더 적은 인력으로 더 많은 환자를 찾아낸다", "의료진이 부족한 상황에서 AI가 판독을 맡으면 놓치는 환자는 줄고 의사의 업무 부담도 줄어든다.", "스웨덴 무작위 대조 시험(MASAI)에서 여성 8만여 명을 두 집단으로 나눠 비교한 결과, AI 지원 검진이 기존 방식보다 암을 20% 더 찾아냈고(41건 추가), 위양성은 늘지 않았으며 판독 업무량은 44% 줄었다.", "masai"],
+  ["AI가 틀리면 의사도 따라 틀려 안전장치가 무너진다", "AI 판단에 기대기 시작하면 사람이 오류를 걸러 내지 못한다(자동화 편향). 생명 결정의 마지막 안전장치가 사라지는 셈이다.", "영상의학과 의사 27명 실험에서 AI가 틀린 제안을 하자 정확도가 경험 적은 의사는 약 80%에서 20% 미만으로, 평균 15년 이상 경력의 의사도 82%에서 45.5%로 떨어졌다.", "drat"],
+  ["위험한 것은 AI가 아니라 ‘반쯤 맡기는’ 구조다", "이 연구는 사람이 AI 제안에 흔들리며 최종 판단하는 혼합 구조의 위험을 보여 준다. 성능이 검증된 영역에서는 AI의 역할과 책임을 분명히 정하는 것이 오히려 안전하다.", "같은 연구에서 정확도가 떨어진 것은 의사가 틀린 AI 제안을 따라갈 때였다.", "drat"]]},
+ {id:"b1", side:"con", issue:"cost", c:[
+  ["AI는 데이터 속 차별을 생명 결정에 그대로 옮긴다", "AI는 과거 데이터를 배우므로 사회의 불평등이 데이터에 있으면 특정 환자를 덜 아픈 것으로 판단한다. 생명 결정에서 이것은 곧 치료 기회의 차별이다.", "미국에서 수백만 명에게 쓰인 건강관리 알고리즘이 ‘의료비’를 건강 필요의 지표로 삼아, 같은 위험 점수에서 흑인 환자가 백인보다 더 아팠다. 추가 관리를 받는 흑인 환자 비율은 17.7%에 그쳤다(편향이 없었다면 46.5%).", "ober"],
+  ["AI의 편향은 찾아내 고칠 수 있고, 사람의 편향보다 낫다", "사람 의사의 편향은 기록되지 않아 드러나지 않는다. AI는 결과를 분석해 편향을 측정하고 바로 수정할 수 있다.", "같은 연구에서 예측 지표를 의료비 대신 실제 건강 상태로 바꾸면 추가 관리 대상 흑인 환자 비율이 17.7%에서 46.5%로 올라가는 것으로 분석됐다.", "ober"],
+  ["그 편향은 수백만 명에게 쓰인 뒤에야 발견됐다", "고칠 수 있다는 것은 사후의 이야기다. 이 편향은 이미 수백만 명에게 쓰인 뒤 외부 연구자가 찾아냈다. 생명 결정은 되돌릴 수 없으므로 사람이 최종 결정해야 한다.", "같은 연구에 따르면 이 알고리즘 유형은 미국 의료 현장에서 수백만 명의 환자에게 쓰이고 있었다.", "ober"]]},
+ {id:"b2", side:"con", issue:"problem", c:[
+  ["생명 결정의 핵심은 정확도가 아니라 환자의 뜻이다", "연명의료 같은 결정은 환자의 가치관과 가족과의 대화로 정해야 한다. AI는 개인의 뜻을 나이·병력 같은 통계로 바꿔 판단해 자기결정권을 해칠 수 있다.", "임상 윤리 결정에 AI를 쓰는 문제를 다룬 문헌 44편을 분석한 체계적 문헌고찰에서, AI가 윤리적 숙고를 통계적 상관관계로 축소해 환자 자율성을 위협할 수 있다는 우려가 제기됐다. WHO도 보건 AI의 첫째 원칙으로 ‘의료 결정의 통제권은 사람에게 있어야 한다’를 제시했다.", "benz"],
+  ["지금의 가족 대리 결정도 환자 뜻을 3번에 1번은 틀린다", "의식이 없는 환자를 대신해 가족이 결정하는 지금 방식도 환자의 뜻을 제대로 반영하지 못한다. 자기결정권을 지키는 것이 목표라면 더 정확한 도구가 필요하다.", "16개 연구(환자-대리인 2,595쌍)를 분석한 결과, 대리인은 환자의 치료 선호를 68%만 맞혔다. 미리 대리인을 정하거나 선호를 의논해도 정확도는 오르지 않았다.", "shal"],
+  ["AI가 가족보다 정확하다는 증거는 없다", "68%가 부족하다고 AI가 낫다는 뜻은 아니다. 환자 선호를 예측하는 AI는 대부분 구상 단계라 가족보다 정확한지 검증된 적이 없다. 사람의 선호는 원래 바뀌기 쉬워 어떤 모델에도 한계가 있다.", "같은 문헌고찰에서 논의된 AI 도구 5개 중 실제로 만들어진 것은 1개(METHAD, 개념 검증 단계)뿐이었다.", "benz"]]},
+ {id:"b3", side:"con", issue:"solution", c:[
+  ["AI 결정은 책임질 주체가 없고, 법은 사람의 감독을 요구한다", "잘못된 생명 결정이 나면 개발사·병원·의사 중 누가 책임지는지 정해져 있지 않다. 그래서 국내외 규제는 의료 AI에 사람의 감독을 의무로 둔다. 지금 제도로는 AI가 결정을 대신하도록 실행할 수 없다.", "의료법 제27조는 의료행위를 의료인으로 한정한다. EU 인공지능법은 의료기기 AI를 고위험으로 분류해 사람의 감독을 의무화했고(2028년 8월 적용), 한국 AI 기본법(2026년 1월 시행)도 고영향 AI에 사람의 감독을 요구한다.", "law"],
+  ["의사 없이 진단하는 자율 AI는 이미 허가받아 쓰이고 있다", "제도는 기술에 맞춰 바뀌어 왔다. 미국에서는 검증된 자율 AI를 허가하고 제조사가 결과에 책임지는 방식이 이미 시행되고 있다.", "미국 FDA는 2018년 당뇨망막병증 진단 AI(IDx-DR)를 ‘모든 의학 분야에서 처음 허가한 자율 AI 진단 시스템’으로 허가했다. 900명 임상시험에서 민감도 87.2%, 특이도 90.7%였고, 제조사는 사고 시 책임지겠다고 밝혔다.", "idx"],
+  ["그 AI는 ‘검사’일 뿐, 생명 결정이 아니다", "IDx-DR은 안과 진료가 필요한지 가려내는 선별검사다. 이상이 나오면 결국 의사가 진료한다. 수술 여부나 연명의료 중단처럼 되돌릴 수 없는 결정과는 위험의 크기가 다르다.", "허가 범위는 ‘경도 이상의 당뇨망막병증’과 당뇨황반부종 검출로 한정된다.", "idx"]]}
+];
+function insertArgSet(){
+  let added = 0;
+  IKEYS.forEach(k => { if (!byId("h_"+k)) S.nodes.push({id:"h_"+k, kind:"issue", issue:k, title:ISSUES[k].name, reason:ISSUES[k].desc, x:0, y:0}); });
+  ARGSET.forEach(ch => {
+    const ids = ch.c.map((_,i) => ch.id + "_" + i);
+    ch.c.forEach(([t, r, e, sk], i) => {
+      if (byId(ids[i])) return;
+      S.nodes.push({id:ids[i], kind:"claim", side: i%2===0 ? ch.side : other(ch.side), issue:ch.issue, title:t, reason:r, evidence:e, source:SRC[sk].s, url:SRC[sk].u, x:0, y:0}); added++;
+    });
+    for (let i = 1; i < ids.length; i++){ const eid = "e_" + ids[i]; if (!S.edges.some(x=>x.id===eid)) S.edges.push({id:eid, from:ids[i], to:ids[i-1], kind:"rebut"}); }
+  });
+  S.argset1 = true;
+  return added;
+}
+function afterArgSet(n){
+  layout(); renderBoard(); save(); requestAnimationFrame(fit); queueSum();
+  if (n) toast(`검증 논증 ${ARGSET.length}개(카드 ${n}장)를 보드에 넣었습니다.`);
+}
+
 
 /* ---------- 빈 보드 (쟁점 카드 3개만) ---------- */
 function seed(){
@@ -316,7 +409,17 @@ const outRebut = id => S.edges.filter(e=>e.kind==="rebut" && e.from===id).map(e=
 const inRebut = id => S.edges.filter(e=>e.kind==="rebut" && e.to===id).map(e=>byId(e.from)).filter(Boolean);
 const supports = id => S.edges.filter(e=>e.kind==="support" && e.to===id).map(e=>byId(e.from)).filter(n=>n && n.kind==="src");
 function depth(n, seen=new Set()){ if (seen.has(n.id)) return 0; seen.add(n.id); const t = outRebut(n.id); return t.length ? 1 + depth(t[0], seen) : 0; }
-const roleName = n => { const d = depth(n); return sideName(n.side) + " " + (d===0 ? "주장" : d===1 ? "반박" : "재반박"); };
+const roleName = n => { const d = depth(n); return sideName(n.side) + " " + (d===0 ? "입론" : d===1 ? "반론" : d===2 ? "재반박" : "재반론"); };
+function rootOf(n){ let cur = n, g = 0; while (cur && g++ < 12){ const t = outRebut(cur.id)[0]; if (!t) break; cur = t; } return cur || n; }
+const CIRC = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫";
+let laneNo = {};
+function computeLaneNo(){
+  laneNo = {}; const cnt = {pro:0, con:0};
+  const roots = S.nodes.filter(n => n.kind==="claim" && !outRebut(n.id).length);
+  roots.sort((a,b) => (IKEYS.indexOf(a.issue)+9)%9 - (IKEYS.indexOf(b.issue)+9)%9 || a.y - b.y);
+  roots.forEach(r => { const s = r.side==="con"?"con":"pro"; laneNo[r.id] = CIRC[cnt[s]] || String(cnt[s]+1); cnt[s]++; });
+}
+const laneTag = n => { const r = rootOf(n), s = r.side==="con"?"con":"pro"; return `<span class="lt ${s}">${sideName(s)} 입론 ${laneNo[r.id]||""}</span>`; };
 
 /* 자동 정렬: 쟁점별 띠, 주장→반박→재반박은 오른쪽으로, 근거 카드는 끝 열 */
 function layout(st){
@@ -324,40 +427,46 @@ function layout(st){
   const find = id => g.nodes.find(n=>n.id===id);
   const kids = id => g.edges.filter(e=>e.kind==="rebut" && e.to===id).map(e=>find(e.from)).filter(Boolean);
   const isRoot = n => n.kind==="claim" && !g.edges.some(e=>e.kind==="rebut" && e.from===n.id);
-  const COLW = 290, ROWH = 150, BAND_GAP = 90;
-  let y0 = 0; const placed = new Set();
-  const bands = [...IKEYS.map(k=>({k, roots:g.nodes.filter(n=>isRoot(n) && n.issue===k)})), {k:null, roots:g.nodes.filter(n=>isRoot(n) && !IKEYS.includes(n.issue))}];
+  const COLW = 290, ROWH = 190, BAND_GAP = 120, X0 = 250, LANE_GAP = 170, TOP = 80;
+  const md = (n, seen=new Set()) => { if (seen.has(n.id)) return 0; seen.add(n.id); const k = kids(n.id); return k.length ? 1 + Math.max(...k.map(c=>md(c,seen))) : 0; };
+  const roots = g.nodes.filter(isRoot);
+  const cols = side => Math.max(3, ...roots.filter(r=>(r.side==="con"?"con":"pro")===side).map(r=>md(r)+1));
+  const laneX = {pro:X0, con:X0 + cols("pro")*COLW + LANE_GAP};
+  const srcX = laneX.con + cols("con")*COLW + 90;
+  let y0 = TOP; const placed = new Set();
+  const bands = [...IKEYS.map(k=>({k, roots:roots.filter(n=>n.issue===k)})), {k:null, roots:roots.filter(n=>!IKEYS.includes(n.issue))}];
   for (const b of bands){
-    let row = 0, maxDepth = 0; const bandNodes = [];
-    const place = (n, d) => { if (placed.has(n.id)) return; placed.add(n.id); n.x = 240 + d*COLW; n.y = y0 + row*ROWH; bandNodes.push(n); maxDepth = Math.max(maxDepth,d);
-      const ks = kids(n.id); if (!ks.length) { row++; return; } ks.forEach(k => place(k, d+1)); };
-    b.roots.forEach(r => place(r, 0));
-    if (b.k === null && !b.roots.length) continue;
-    // 근거 카드
+    if (b.k===null && !b.roots.length) continue;
+    const rows = {pro:0, con:0}; const bandNodes = [];
+    for (const side of ["pro","con"]){
+      const place = (n, d) => { if (placed.has(n.id)) return; placed.add(n.id); n.x = laneX[side] + d*COLW; n.y = y0 + rows[side]*ROWH; bandNodes.push(n);
+        const ks = kids(n.id); if (!ks.length){ rows[side]++; return; } ks.forEach(k => place(k, d+1)); };
+      b.roots.filter(r=>(r.side==="con"?"con":"pro")===side).sort((p,q)=>p.y-q.y).forEach(r => place(r, 0));
+    }
     const srcs = g.nodes.filter(n=>n.kind==="src" && !placed.has(n.id) && g.edges.some(e=>e.kind==="support" && e.from===n.id && bandNodes.some(x=>x.id===e.to)));
-    const sx = 240 + (maxDepth+1)*COLW + 40;
-    srcs.forEach((s,i) => { placed.add(s.id); s.x = sx + (i%2)*240; s.y = y0 + Math.floor(i/2)*ROWH; });
-    const rows = Math.max(row, Math.ceil(srcs.length/2), 1);
-    if (b.k){ const h = find("h_"+b.k); if (h){ placed.add(h.id); h.x = 0; h.y = y0 + (rows-1)*ROWH/2; } }
-    y0 += rows*ROWH + BAND_GAP;
+    srcs.forEach((s2,i) => { placed.add(s2.id); s2.x = srcX + (i%2)*240; s2.y = y0 + Math.floor(i/2)*ROWH; });
+    const nrows = Math.max(rows.pro, rows.con, Math.ceil(srcs.length/2), 1);
+    if (b.k){ const h = find("h_"+b.k); if (h){ placed.add(h.id); h.x = 0; h.y = y0 + (nrows-1)*ROWH/2; } }
+    y0 += nrows*ROWH + BAND_GAP;
   }
-  // 나머지(메모, 연결 안 된 근거)
-  let i = 0; g.nodes.filter(n=>!placed.has(n.id)).forEach(n => { n.x = 240 + (i%4)*COLW; n.y = y0 + Math.floor(i/4)*ROWH; i++; });
+  let i = 0; g.nodes.filter(n=>!placed.has(n.id)).forEach(n => { n.x = X0 + (i%4)*COLW; n.y = y0 + Math.floor(i/4)*ROWH; i++; });
 }
 
 /* ---------- 보드 렌더 ---------- */
 const board = $("#board"), world = $("#world"), nodesEl = $("#nodes"), edgeLayer = $("#edgeLayer");
 function applyView(){ const v = S.view; world.style.transform = `translate(${v.x}px,${v.y}px) scale(${v.k})`; board.style.backgroundPosition = `${v.x}px ${v.y}px`; board.style.backgroundSize = `${24*v.k}px ${24*v.k}px`; $("#zv").textContent = Math.round(v.k*100)+"%"; }
 function nodeHTML(n){
-  if (n.kind==="issue") return `<div class="nd-kind" style="color:inherit;opacity:.7">${ISSUES[n.issue].no}</div><div class="nd-t">${esc(n.title)}</div><div class="nd-r">${esc(n.reason)}</div>`;
+  if (n.kind==="issue") return `<div class="nd-kind" style="color:inherit;opacity:.7">${ISSUES[n.issue].no}<span class="lock">고정</span></div><div class="nd-t">${esc(n.title)}</div><div class="nd-r">${esc(n.reason)}</div>`;
   if (n.kind==="src") return `<div class="nd-kind">근거 자료 ${n.use==="pro"?"· 찬성용":n.use==="con"?"· 반대용":""}</div><div class="nd-t">${esc(n.title)}</div><div class="nd-r">${esc(n.reason)}</div><div class="nd-meta"><span class="pill">${esc((n.source||"").split("/")[0].trim()).slice(0,34)||"출처 없음"}</span></div><span class="port" data-port title="끌어서 주장에 연결">●</span>`;
   if (n.kind==="memo") return `<div class="nd-kind">메모</div><div class="nd-t">${esc(n.title)}</div>${n.reason?`<div class="nd-r">${esc(n.reason)}</div>`:""}<span class="port" data-port title="끌어서 연결">●</span>`;
   const hasEv = (n.evidence||"").trim() || supports(n.id).length;
   const rb = inRebut(n.id).length;
-  return `<div class="nd-kind">${roleName(n)}${n.issue?` · ${ISSUES[n.issue].name}`:""}</div><div class="nd-t">${esc(n.title)}</div>${n.reason?`<div class="nd-r">${esc(n.reason)}</div>`:""}<div class="nd-meta">${hasEv?'<span class="pill ok">근거 있음</span>':'<span class="pill need">근거 필요</span>'}${rb?`<span class="pill">받은 반박 ${rb}</span>`:""}${n.fromSrc?'<span class="pill new">자료에서</span>':""}</div><span class="port" data-port title="끌어서 다른 카드에 연결">●</span>`;
+  const src1 = (n.source||"").split(/[(/]/)[0].trim().slice(0,30);
+  return `<div class="nd-kind">${laneTag(n)}${roleName(n)}${n.issue?` · ${ISSUES[n.issue].name}`:""}</div><div class="nd-t">${esc(n.title)}</div>${n.reason?`<div class="nd-r">${esc(n.reason)}</div>`:""}<div class="nd-meta">${hasEv?'<span class="pill ok">근거 있음</span>':'<span class="pill need">근거 필요</span>'}${src1?`<span class="pill">${esc(src1)}</span>`:""}${rb?`<span class="pill">받은 반론 ${rb}</span>`:""}${n.fromSrc?'<span class="pill new">자료에서</span>':""}</div><span class="port" data-port title="끌어서 다른 카드에 연결">●</span>`;
 }
 function nodeClass(n){ return "nd " + n.kind + (n.side?" "+n.side:"") + (selected?.type==="node" && selected.id===n.id ? " sel":""); }
 function renderBoard(){
+  computeLaneNo();
   nodesEl.innerHTML = "";
   for (const n of S.nodes){
     const el = document.createElement("div");
@@ -370,7 +479,7 @@ function renderBoard(){
   drawEdges();
 }
 function refreshNode(id){ const n = byId(id), el = nodesEl.querySelector(`[data-id="${id}"]`); if (!n || !el) return; el.className = nodeClass(n); el.innerHTML = nodeHTML(n); }
-function refreshAllNodeText(){ S.nodes.forEach(n=>refreshNode(n.id)); drawEdges(); }
+function refreshAllNodeText(){ computeLaneNo(); S.nodes.forEach(n=>refreshNode(n.id)); drawEdges(); }
 function rectOf(id){ const n = byId(id), el = nodesEl.querySelector(`[data-id="${id}"]`); if (!n || !el) return null; return {x:n.x, y:n.y, w:el.offsetWidth, h:el.offsetHeight}; }
 function curve(a, b){
   const ac = {x:a.x+a.w/2, y:a.y+a.h/2}, bc = {x:b.x+b.w/2, y:b.y+b.h/2};
@@ -387,7 +496,8 @@ function curve(a, b){
 }
 function edgeStyle(e){
   const f = byId(e.from);
-  if (e.kind==="rebut"){ const s = f?.side==="con"?"con":"pro"; return {stroke:`var(--${s})`, marker:`m-${s}`, dash:"", label:"반박", lc:`var(--${s})`}; }
+  if (e.kind==="rebut"){ const t = byId(e.to); const lane = (t ? rootOf(t).side : f?.side)==="con" ? "con" : "pro"; const d = f ? depth(f) : 1;
+    return {stroke:`var(--${lane})`, marker:`m-${lane}`, dash:"", label: d===1?"반론":d===2?"재반박":"재반론", lc:`var(--${lane})`, w:2.6}; }
   if (e.kind==="support") return {stroke:"var(--src)", marker:"m-sup", dash:"2 4", label:"근거", lc:"var(--src)"};
   return {stroke:"var(--muted)", marker:"m-link", dash:"6 5", label:"", lc:"var(--muted)"};
 }
@@ -399,11 +509,25 @@ function drawEdgesNow(){
     const a = rectOf(e.from), b = rectOf(e.to); if (!a || !b) continue;
     const {d, mid} = curve(a, b), st = edgeStyle(e);
     const sel = selected?.type==="edge" && selected.id===e.id;
-    h += `<path class="e" d="${d}" style="stroke:${st.stroke};${st.dash?`stroke-dasharray:${st.dash};`:""}${sel?"stroke-width:4;":""}" marker-end="url(#${st.marker})"/>`;
+    h += `<path class="e" d="${d}" style="stroke:${st.stroke};${st.dash?`stroke-dasharray:${st.dash};`:""}stroke-width:${sel?4.5:(st.w||2)};" marker-end="url(#${st.marker})"/>`;
     if (st.label) h += `<text class="lbl" x="${mid.x}" y="${mid.y+4}" text-anchor="middle" style="fill:${st.lc}">${st.label}</text>`;
     h += `<path class="hit" data-edge="${e.id}" d="${d}"/>`;
   }
   edgeLayer.innerHTML = h;
+  drawLanes();
+}
+function drawLanes(){
+  const box = {};
+  for (const n of S.nodes){
+    if (n.kind!=="claim") continue;
+    const r = rectOf(n.id); if (!r) continue;
+    const s = rootOf(n).side==="con" ? "con" : "pro";
+    const b = box[s] || (box[s] = {x0:Infinity, y0:Infinity, x1:-Infinity, y1:-Infinity});
+    b.x0 = Math.min(b.x0, r.x); b.y0 = Math.min(b.y0, r.y); b.x1 = Math.max(b.x1, r.x+r.w); b.y1 = Math.max(b.y1, r.y+r.h);
+  }
+  const sub = {pro:"찬성 입론 → 반대 반론 → 찬성 재반박", con:"반대 입론 → 찬성 반론 → 반대 재반박"};
+  $("#lanes").innerHTML = ["pro","con"].filter(s=>box[s]).map(s => { const b = box[s], P = 28;
+    return `<div class="lanebox ${s}" style="left:${b.x0-P}px;top:${b.y0-P-46}px;width:${b.x1-b.x0+P*2}px;height:${b.y1-b.y0+P*2+46}px"><div class="lh"><b>${sideName(s)} 측 입론</b><span>${sub[s]}</span></div></div>`; }).join("");
 }
 
 /* ---------- 포인터: 이동 / 카드 끌기 / 연결 ---------- */
@@ -420,6 +544,7 @@ board.addEventListener("pointerdown", e => {
   }
   if (nodeEl){
     const n = byId(nodeEl.dataset.id); const p = toWorld(e.clientX,e.clientY);
+    if (n.kind==="issue"){ select({type:"node", id:n.id}); return; }
     drag = {type:"node", id:n.id, dx:p.x-n.x, dy:p.y-n.y, sx:e.clientX, sy:e.clientY, moved:false, el:nodeEl};
     board.setPointerCapture(e.pointerId); return;
   }
@@ -555,7 +680,7 @@ function renderPanel(){
   let body = "";
   if (n.kind==="issue"){
     body = `<div class="head"><h3>${ISSUES[n.issue].no} ${esc(n.title)}</h3><button class="btn ghost" data-close>닫기</button></div>
-      <p class="muted small" style="margin:0">${esc(n.reason)}. 주장 카드를 이 쟁점 카드에 연결하면 그 쟁점으로 분류됩니다.</p>${connHTML}`;
+      <p class="muted small" style="margin:0">${esc(n.reason)}. 쟁점 카드는 움직이거나 지울 수 없게 고정돼 있어요. 주장 카드를 이 카드에 이으면 그 쟁점으로 분류됩니다.</p>${connHTML}`;
   } else if (n.kind==="src"){
     body = `<div class="head"><h3>근거 자료</h3><button class="btn ghost" data-close>닫기</button></div>
       <div class="field"><label for="f-title">자료 제목</label><input type="text" id="f-title" value="${esc(n.title)}"></div>
@@ -582,8 +707,10 @@ function renderPanel(){
       <div class="field"><label for="f-reason">이유</label><textarea id="f-reason">${esc(n.reason)}</textarea></div>
       <div class="field"><label for="f-evidence">근거 자료</label><textarea id="f-evidence" placeholder="통계·연구·사례 (근거 카드를 연결해도 됩니다)">${esc(n.evidence)}</textarea></div>
       <div class="field"><label for="f-source">출처</label><input type="text" id="f-source" value="${esc(n.source)}"></div>
+      <div class="field"><label for="f-url">원문 링크</label><input type="url" id="f-url" value="${esc(n.url||"")}" placeholder="https://"></div>
+      ${n.url?`<a class="small" href="${esc(n.url)}" target="_blank" rel="noopener" style="color:var(--src)">원문 열기</a>`:""}
       <div class="row">
-        <button class="btn ${opp}" id="addReb">+ ${sideName(opp)} 반박 잇기</button>
+        <button class="btn ${opp}" id="addReb">+ ${sideName(opp)} 반론 잇기</button>
         <button class="btn src" id="addEv">+ 근거 카드</button>
       </div>
       <button class="btn" id="aiReb">${sideName(opp)} 측 반박 자동 생성</button>
@@ -653,6 +780,7 @@ function renderLib(){
       <textarea id="srcText" placeholder="기사·논문 내용을 복사해 붙여 넣으세요. 쟁점별 카드로 나눠 보드에 추가합니다." style="min-height:110px"></textarea>
       <div class="row"><button class="btn primary" id="organize">${document.documentElement.classList.contains("noai")?"쟁점별로 분류해서 보드에 추가":"자동 정리해서 보드에 추가"}</button><button class="btn ghost" id="stopOrg" hidden>중지</button></div>
       <div class="status" id="orgStatus"></div>
+      <button class="btn src" id="putArgs">검증 논증 6개 보드에 넣기 (입론→반론→재반박)</button>
     </div>
     <hr class="sep">
     <div class="head"><div class="flabel">검증한 자료 ${LIBRARY.length}개 · 출처 링크로 원문 확인</div></div>
@@ -675,6 +803,7 @@ function renderLib(){
   });
   lib.querySelectorAll("[data-golib]").forEach(b => b.onclick = () => { const n = S.nodes.find(x=>x.lib===b.dataset.golib); if (n){ lib.hidden = true; focusNode(n.id); } });
   $("#organize").onclick = organize;
+  $("#putArgs").onclick = () => { const n = insertArgSet(); if (n) { lib.hidden = true; afterArgSet(n); } else toast("이미 보드에 모두 들어 있습니다."); };
   $("#stopOrg").onclick = () => orgCtl?.abort();
 }
 
@@ -830,12 +959,13 @@ function renderSum(){
   sumDirty = false;
   const sec2 = IKEYS.map(k=>`<tr><td class="c">${ISSUES[k].name}</td><td>${list(roots(k,"pro"))}</td><td>${list(roots(k,"con"))}</td></tr>`).join("");
   function list(arr){ return arr.length ? `<ul>${arr.map(n=>`<li>${J(n)}</li>`).join("")}</ul>` : '<span class="pill need">보드에 주장 없음</span>'; }
-  const arg = (n) => `<div class="argcard ${n.side}"><span class="k">주장</span>${J(n)}<span class="k">이유</span><span>${esc(n.reason)||'<span class="pill need">이유 필요</span>'}</span><span class="k">근거</span><span>${evText(n).map(esc).join("<br>")||'<span class="pill need">근거 필요</span>'}</span><span class="k">출처</span><span class="small">${srcText(n).map(esc).join(" · ")||'<span class="pill need">출처 필요</span>'}</span></div>`;
+  const arg = (n) => `<div class="argcard ${n.side}"><span class="k">주장</span>${J(n)}<span class="k">이유</span><span>${esc(n.reason)||'<span class="pill need">이유 필요</span>'}</span><span class="k">근거</span><span>${evText(n).map(esc).join("<br>")||'<span class="pill need">근거 필요</span>'}</span><span class="k">출처</span><span class="small">${srcText(n).map(esc).join(" · ")||'<span class="pill need">출처 필요</span>'}</span>${chainOf(n).map(({r,d}) => `<div class="chainline" style="margin-left:${(d-1)*12}px"><span class="k">↳ ${roleName(r)}</span>${J(r)}<span class="small muted">${esc(evText(r)[0]||"")}</span></div>`).join("")}</div>`;
+  function chainOf(n){ const out = []; let cur = [n], d = 1; while (cur.length && d < 5){ const next = []; cur.forEach(c => inRebut(c.id).forEach(r => { out.push({r, d}); next.push(r); })); cur = next; d++; } return out; }
   const sec3 = IKEYS.map(k=>`<div><div class="flabel" style="margin:8px 0 6px">${ISSUES[k].no} ${ISSUES[k].name}</div><div class="grid2"><div style="display:flex;flex-direction:column;gap:8px">${roots(k,"pro").map(arg).join("")||'<span class="muted small">찬성 주장 없음</span>'}</div><div style="display:flex;flex-direction:column;gap:8px">${roots(k,"con").map(arg).join("")||'<span class="muted small">반대 주장 없음</span>'}</div></div></div>`).join("");
   const exp = []; S.nodes.filter(n=>n.kind==="claim" && n.side===ourSide).forEach(n => inRebut(n.id).filter(q=>q.side!==ourSide).forEach(q => exp.push({on:n, q, a:inRebut(q.id).find(x=>x.side===ourSide)})));
   const mine = S.cx.map((q,i)=>({q,i})).filter(x=>x.q.side===ourSide);
   sheet.innerHTML = `
-    <div class="sheet-top"><h2>최종 정리</h2><div class="row"><span class="small muted">보드를 고치면 바로 반영됩니다</span><button class="btn" id="copyAll">전체 복사</button></div></div>
+    <div class="sheet-top"><h2>최종 정리</h2><div class="row"><span class="small muted">보드를 고치면 바로 반영됩니다</span><span class="row" role="group" aria-label="글자 크기"><button class="btn small" id="szDown" aria-label="글자 작게">가−</button><span class="meter" id="szV">${Math.round(sheetZoom*100)}%</span><button class="btn small" id="szUp" aria-label="글자 크게">가+</button></span><button class="btn" id="copyAll">전체 복사</button></div></div>
     <div class="sec"><h3><span class="no">1</span>논제 확인</h3>
       <p style="margin:0 0 8px"><b>${esc(S.topic)}</b> <span class="pill">정책 논제</span></p>
       <div class="flabel">주요 용어 정의</div>
@@ -876,6 +1006,8 @@ function renderSum(){
   $("#addCx").onclick = () => { S.cx.push({side:ourSide, confirm:"방금 ○○라고 하셨는데 맞습니까?", verify:""}); save(); renderSum(); };
   $("#genCx").onclick = genCx;
   $("#copyAll").onclick = () => copyText(exportAll());
+  $("#szDown").onclick = () => setSheetZoom(sheetZoom - .1);
+  $("#szUp").onclick = () => setSheetZoom(sheetZoom + .1);
   sheet.addEventListener("focusout", () => { setTimeout(()=>{ if (sumDirty && !sheet.contains(document.activeElement)) renderSum(); }, 0); }, {once:true});
   renderSpeeches();
 }
@@ -958,7 +1090,7 @@ function setMode(m){
   mode = m;
   document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode===m));
   $("#main").classList.toggle("split", m==="split");
-  $("#boardWrap").hidden = m==="sum"; $("#sumWrap").hidden = m==="board";
+  $("#boardWrap").hidden = m==="sum"; $("#sumWrap").hidden = m==="board"; $("#splitter").hidden = m!=="split";
   if (m!=="board") renderSum();
   if (m!=="sum") requestAnimationFrame(()=>{ applyView(); drawEdges(); });
   try{ localStorage.setItem(KEY+"-mode", m); }catch(e){}
@@ -1008,10 +1140,12 @@ function applyRemote(v){
   try{ localStorage.setItem(LKEY, JSON.stringify(S)); }catch(e){}
   syncSoon(); // 보내지 못한 내 수정이 있으면 이어서 보냄
 }
+let argTried = false;
 function startSync(){
   const st = $("#syncState");
   const cfg = window.FIREBASE_CONFIG;
-  if (!cfg || !window.firebase){ st.textContent = "혼자 쓰는 중 (공유 설정 전)"; st.className = "pill off"; $("#copyLink").hidden = true; return; }
+  if (!cfg || !window.firebase){ st.textContent = "혼자 쓰는 중 (공유 설정 전)"; st.className = "pill off"; $("#copyLink").hidden = true;
+    if (ROOM==="main" && !S.argset1) setTimeout(() => afterArgSet(insertArgSet()), 0); return; }
   try{
     const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(cfg);
     const db = app.database(); const ref = db.ref("boards/" + ROOM);
@@ -1032,9 +1166,64 @@ function startSync(){
         return;
       }
       applyRemote(v);
+      if (ROOM==="main" && !(v.meta && v.meta.argset1) && !argTried){
+        argTried = true;
+        ref.child("meta/argset1").transaction(cur => cur ? undefined : Date.now(), (err, committed) => { if (committed) afterArgSet(insertArgSet()); });
+      }
     }, err => { st.textContent = "공유 저장소에 접근할 수 없음 (규칙 확인)"; st.className = "pill off"; FB = null; });
   }catch(e){ st.textContent = "공유 설정 오류"; st.className = "pill off"; FB = null; }
 }
+
+/* ---------- 창 크기 조절 ---------- */
+const mainEl = $("#main"), splitter = $("#splitter");
+let sp = 56; try { sp = +localStorage.getItem(KEY+"-sp") || 56; } catch(e){}
+const setSp = v => { sp = Math.min(82, Math.max(18, v)); mainEl.style.setProperty("--sp", sp); drawEdges(); try{ localStorage.setItem(KEY+"-sp", sp); }catch(e){} };
+setSp(sp);
+const narrow = () => window.matchMedia("(max-width:860px)").matches;
+splitter.addEventListener("pointerdown", e => { e.preventDefault(); splitter.setPointerCapture(e.pointerId); splitter.classList.add("drag"); });
+splitter.addEventListener("pointermove", e => {
+  if (!splitter.classList.contains("drag")) return;
+  const r = mainEl.getBoundingClientRect();
+  setSp(narrow() ? (e.clientY - r.top) / r.height * 100 : (e.clientX - r.left) / r.width * 100);
+});
+const endSplit = () => splitter.classList.remove("drag");
+splitter.addEventListener("pointerup", endSplit); splitter.addEventListener("pointercancel", endSplit);
+splitter.addEventListener("dblclick", () => setSp(56));
+splitter.addEventListener("keydown", e => {
+  const k = e.key; if (["ArrowLeft","ArrowUp"].includes(k)){ e.preventDefault(); setSp(sp-4); } if (["ArrowRight","ArrowDown"].includes(k)){ e.preventDefault(); setSp(sp+4); }
+});
+
+/* ---------- 정리 창 글자 크기 ---------- */
+var sheetZoom = 1; try { sheetZoom = +localStorage.getItem(KEY+"-sz") || 1; } catch(e){}
+function setSheetZoom(z){ sheetZoom = Math.round(Math.min(1.8, Math.max(.7, z))*10)/10; sheet.style.zoom = sheetZoom; const v = $("#szV"); if (v) v.textContent = Math.round(sheetZoom*100)+"%"; try{ localStorage.setItem(KEY+"-sz", sheetZoom); }catch(e){} }
+setSheetZoom(sheetZoom);
+
+/* ---------- 돋보기 ---------- */
+const lens = $("#lens"), lensBtn = $("#lensBtn");
+let lensOn = false; try { lensOn = localStorage.getItem(KEY+"-lens") === "1"; } catch(e){}
+const setLens = on => { lensOn = on; lensBtn.setAttribute("aria-pressed", on); if (!on) lens.hidden = true; try{ localStorage.setItem(KEY+"-lens", on?"1":"0"); }catch(e){} };
+setLens(lensOn);
+lensBtn.onclick = () => { setLens(!lensOn); toast(lensOn ? "돋보기를 켰습니다. 카드에 마우스를 올리면 크게 보입니다." : "돋보기를 껐습니다."); };
+function showLens(el){
+  const n = byId(el.dataset.id); if (!n) return;
+  let h = "";
+  if (n.kind==="claim"){
+    h = `<div class="lk">${laneTag(n)}${roleName(n)}${n.issue?` · ${ISSUES[n.issue].name}`:""}</div><h5>${esc(n.title)}</h5>${n.reason?`<p>${esc(n.reason)}</p>`:""}${evText(n).map(x=>`<p class="ev">${esc(x)}</p>`).join("")}${srcText(n).length?`<p class="so">출처: ${srcText(n).map(esc).join(" · ")}</p>`:""}`;
+  } else if (n.kind==="issue"){
+    h = `<div class="lk">${ISSUES[n.issue].no} · 고정</div><h5>${esc(n.title)}</h5><p>${esc(n.reason)}</p>`;
+  } else {
+    h = `<div class="lk">${n.kind==="src"?"근거 자료":"메모"}</div><h5>${esc(n.title)}</h5>${n.reason?`<p>${esc(n.reason)}</p>`:""}${n.source?`<p class="so">출처: ${esc(n.source)}</p>`:""}`;
+  }
+  lens.innerHTML = h; lens.hidden = false;
+  const r = el.getBoundingClientRect(), W = lens.offsetWidth, H = lens.offsetHeight, M = 12;
+  let x = r.right + M; if (x + W > innerWidth - 16) x = r.left - W - M; if (x < 16) x = Math.min(innerWidth - W - 16, Math.max(16, r.left));
+  let y = Math.min(Math.max(16, r.top), innerHeight - H - 16);
+  lens.style.left = x + "px"; lens.style.top = y + "px";
+}
+board.addEventListener("pointerover", e => { if (!lensOn || drag || e.pointerType === "touch") return; const el = e.target.closest(".nd"); if (el) showLens(el); });
+board.addEventListener("pointerout", e => { if (!lensOn) return; const el = e.target.closest(".nd"); if (el && !el.contains(e.relatedTarget)) lens.hidden = true; });
+board.addEventListener("pointerdown", () => { lens.hidden = true; });
+board.addEventListener("wheel", () => { lens.hidden = true; }, {passive:true});
 window.addEventListener("hashchange", () => location.reload());
 startSync();
 
