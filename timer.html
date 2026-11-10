@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CEDA 토론 타이머</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 한 화면 앱: 위 = 단계 목록(가로 스크롤), 가운데 = 큰 시계, 아래 = 조작 버튼 */
+:root{
+  --bg:#ffffff; --fg:#16191f; --sub:#646b77; --line:#dcdfe4; --soft:#f2f3f5; --warn:#b42318; --warn-bg:#fdecea;
+  --sans:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111317; --fg:#eef0f3; --sub:#98a0ac; --line:#2b3038; --soft:#1b1e24; --warn:#ff6b5e; --warn-bg:#3a1714; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#111317; --fg:#eef0f3; --sub:#98a0ac; --line:#2b3038; --soft:#1b1e24; --warn:#ff6b5e; --warn-bg:#3a1714; color-scheme:dark }
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; }
+body{ background:var(--bg); color:var(--fg); font-family:var(--sans); display:flex; flex-direction:column;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); padding-block:14px; }
+button,select{ font:inherit; color:inherit; }
+button:focus-visible,select:focus-visible{ outline:2px solid var(--fg); outline-offset:2px; }
+header{ display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; justify-content:space-between; padding-bottom:12px; border-bottom:1.5px solid var(--fg); }
+.brand{ font-weight:900; font-size:18px; letter-spacing:-.01em; }
+.brand span{ font-weight:500; color:var(--sub); font-size:13px; margin-left:8px; }
+.mode{ display:flex; gap:8px; align-items:center; font-size:13px; color:var(--sub); flex-wrap:wrap; }
+.mode select{ background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:14px; color:var(--fg); }
+.linkbtn{ font-size:13px; color:var(--sub); text-decoration:none; border:1px solid var(--line); border-radius:8px; padding:6px 10px; }
+.steps{ display:flex; gap:6px; overflow-x:auto; padding:12px 0 4px; scrollbar-width:thin; }
+.st{ flex:0 0 auto; border:1px solid var(--line); background:var(--bg); border-radius:10px; padding:7px 10px; cursor:pointer; text-align:left; min-width:92px; }
+.st .n{ font-family:var(--mono); font-size:12px; color:var(--sub); }
+.st .l{ display:block; font-size:13px; font-weight:700; margin-top:1px; white-space:nowrap; }
+.st .s{ display:inline-block; font-size:10.5px; font-weight:700; padding:0 6px; border-radius:4px; margin-left:4px; }
+.s.pro{ background:var(--fg); color:var(--bg); } .s.con{ border:1px solid var(--fg); }
+.st.done{ opacity:.45; }
+.st.cur{ border-color:var(--fg); box-shadow:0 0 0 2px var(--fg) inset; }
+main{ flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:6px; padding:8px 0; }
+.side{ font-size:15px; font-weight:900; padding:4px 14px; border-radius:8px; }
+.side.pro{ background:var(--fg); color:var(--bg); } .side.con{ border:1.5px solid var(--fg); }
+.side.prep{ background:var(--soft); }
+.title{ font-size:clamp(22px,4.4vw,40px); font-weight:900; letter-spacing:-.02em; margin-top:6px; }
+.who{ font-size:clamp(15px,2.2vw,20px); color:var(--sub); min-height:1.4em; }
+.who b{ color:var(--fg); }
+.clock{ font-family:var(--mono); font-weight:600; font-size:clamp(84px,22vw,240px); line-height:1; letter-spacing:-.04em; font-variant-numeric:tabular-nums; margin:6px 0 2px; }
+.bar{ width:min(720px,100%); height:6px; background:var(--soft); border-radius:3px; overflow:hidden; }
+.bar i{ display:block; height:100%; width:0; background:var(--fg); }
+.hint{ font-size:13px; color:var(--sub); min-height:1.3em; }
+body.low .clock{ color:var(--warn); }
+body.over{ background:var(--warn-bg); }
+body.over .clock{ color:var(--warn); }
+body.over .bar i{ background:var(--warn); }
+.ctrl{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding-top:12px; border-top:1px solid var(--line); }
+.ctrl button{ border:1px solid var(--line); background:var(--bg); border-radius:10px; padding:11px 18px; font-size:15px; font-weight:700; cursor:pointer; min-width:84px; }
+.ctrl button.main{ background:var(--fg); color:var(--bg); border-color:var(--fg); min-width:140px; }
+.ctrl button:disabled{ opacity:.35; cursor:default; }
+.ctrl .sep{ width:1px; background:var(--line); margin:0 4px; }
+.keys{ text-align:center; font-size:12px; color:var(--sub); padding-top:8px; }
+.keys kbd{ font-family:var(--mono); border:1px solid var(--line); border-radius:4px; padding:0 5px; font-size:11px; }
+@media (max-width:560px){ .ctrl button{ padding:10px 12px; min-width:0; flex:1 1 30%; } .ctrl .sep{ display:none; } }
+@media (prefers-reduced-motion:no-preference){ .bar i{ transition:width .25s linear; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">CEDA 토론 타이머<span>AI 의료 생명 결정</span></div>
+  <div class="mode">
+    <label for="mode">보기</label>
+    <select id="mode">
+      <option value="pro">실전 · 우리가 찬성</option>
+      <option value="con">실전 · 우리가 반대</option>
+      <option value="m1">모둠 모의 · 1판</option>
+      <option value="m2">모둠 모의 · 2판</option>
+    </select>
+    <a class="linkbtn" href="./">토론 보드</a>
+  </div>
+</header>
+
+<nav class="steps" id="steps" aria-label="토론 단계"></nav>
+
+<main>
+  <div class="side" id="side">찬성</div>
+  <div class="title" id="title">입론 1</div>
+  <div class="who" id="who"></div>
+  <div class="clock" id="clock" role="timer" aria-live="off">3:00</div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="hint" id="hint">시작을 누르면 시간이 흐릅니다.</div>
+</main>
+
+<div class="ctrl">
+  <button id="prev" aria-label="이전 단계">이전</button>
+  <button id="go" class="main">시작</button>
+  <button id="reset">다시</button>
+  <button id="next" aria-label="다음 단계">다음</button>
+  <span class="sep"></span>
+  <button id="prepPro">찬성 작전 회의</button>
+  <button id="prepCon">반대 작전 회의</button>
+</div>
+<div class="keys"><kbd>스페이스</kbd> 시작·멈춤 · <kbd>→</kbd> 다음 · <kbd>←</kbd> 이전 · <kbd>R</kbd> 다시 · 0초가 되면 소리가 나고 넘긴 시간이 빨갛게 표시됩니다</div>
+
+<script>
+(() => {
+  const STEPS = [
+    {n:1, side:'pro', t:'입론 1', sec:180, cx:false},
+    {n:2, side:'con', t:'반대 신문', sec:180, cx:true},
+    {n:3, side:'con', t:'입론 1', sec:180, cx:false},
+    {n:4, side:'pro', t:'반대 신문', sec:180, cx:true},
+    {n:5, side:'pro', t:'입론 2', sec:120, cx:false},
+    {n:6, side:'con', t:'반대 신문', sec:120, cx:true},
+    {n:7, side:'con', t:'입론 2', sec:120, cx:false},
+    {n:8, side:'pro', t:'반대 신문', sec:120, cx:true},
+    {n:9, side:'con', t:'반론 및 마무리', sec:120, cx:false},
+    {n:10, side:'pro', t:'반론 및 마무리', sec:120, cx:false}
+  ];
+  const ANS = {2:1, 4:3, 6:5, 8:7};
+  const OURS = {1:'유시엘',2:'김용주',3:'유시엘',4:'김용주',5:'김성준',6:'김성준',7:'김성준',8:'김성준',9:'홍지민',10:'홍지민'};
+  const OPP = {pro:{1:'상대 A',4:'상대 A',5:'상대 B',8:'상대 B',10:'상대 C'}, con:{3:'상대 A',6:'상대 A',2:'상대 B',7:'상대 B',9:'상대 C'}};
+  const MOCK = {
+    m1:{1:'유시엘',2:'김용주',3:'홍지민',4:'유시엘',5:'김성준',6:'김용주',7:'김용주',8:'김성준',9:'홍지민',10:'유시엘'},
+    m2:{1:'홍지민',2:'유시엘',3:'유시엘',4:'김용주',5:'김용주',6:'김성준',7:'김성준',8:'홍지민',9:'유시엘',10:'홍지민'}
+  };
+  const NAME = {pro:'찬성', con:'반대'};
+  const $ = id => document.getElementById(id);
+
+  let mode = 'pro';
+  try { mode = localStorage.getItem('ceda-timer-mode') || 'pro'; } catch(e){}
+  $('mode').value = mode;
+
+  function speaker(n){
+    const st = STEPS[n-1];
+    if (mode === 'm1' || mode === 'm2') return {name: MOCK[mode][n], ours: true};
+    if (st.side === mode) return {name: OURS[n], ours: true};
+    return {name: OPP[st.side][n], ours: false};
+  }
+  function whoHTML(n){
+    const s = speaker(n), fmt = x => x.ours ? `<b>${x.name}</b>` : x.name;
+    if (STEPS[n-1].cx) return `질문 ${fmt(s)} → 답변 ${fmt(speaker(ANS[n]))}`;
+    return fmt(s);
+  }
+
+  // 상태
+  let idx = 0, prep = null, total = 180, left = 180, running = false, last = 0, raf = 0, beeped = false;
+  const done = new Set(), prepUsed = {pro:false, con:false};
+
+  function current(){ return prep ? {t:'작전 회의', sec:60, side:prep, prep:true} : STEPS[idx]; }
+  function fmt(s){
+    const neg = s < 0, a = Math.abs(s), m = Math.floor(a/60), r = Math.floor(a%60);
+    return (neg ? '+' : '') + m + ':' + String(r).padStart(2,'0');
+  }
+  function renderSteps(){
+    const nav = $('steps'); nav.innerHTML = '';
+    STEPS.forEach((st, i) => {
+      const b = document.createElement('button');
+      b.className = 'st' + (i===idx && !prep ? ' cur' : '') + (done.has(i) ? ' done' : '');
+      b.innerHTML = `<span class="n">${st.n}</span><span class="s ${st.side}">${NAME[st.side]}</span><span class="l">${st.t} · ${st.sec/60}분</span>`;
+      b.onclick = () => go(i);
+      b.setAttribute('aria-current', i===idx && !prep ? 'step' : 'false');
+      nav.appendChild(b);
+      if (i === 7){
+        const p = document.createElement('span'); p.className='st'; p.style.cursor='default'; p.style.borderStyle='dashed';
+        p.innerHTML = '<span class="n">·</span><span class="l" style="color:var(--sub)">작전 회의 1분</span>';
+        nav.appendChild(p);
+      }
+    });
+    const cur = nav.querySelector('.cur'); if (cur) cur.scrollIntoView({block:'nearest', inline:'center'});
+  }
+  function render(){
+    const c = current();
+    $('side').className = 'side ' + (c.prep ? 'prep' : c.side);
+    $('side').textContent = c.prep ? NAME[c.side] + ' 작전 회의' : NAME[c.side] + ' · ' + STEPS[idx].n + '번째';
+    $('title').textContent = c.prep ? '작전 회의' : c.t;
+    $('who').innerHTML = c.prep ? '받아 낸 예/아니요 답을 반론 담당에게 넘기세요' : whoHTML(STEPS[idx].n);
+    $('clock').textContent = fmt(Math.ceil(left));
+    $('bar').style.width = Math.min(100, Math.max(0, (1 - left/total)*100)) + '%';
+    document.body.classList.toggle('over', left < 0);
+    document.body.classList.toggle('low', left >= 0 && left <= 30 && running);
+    $('go').textContent = running ? '멈춤' : (left < total ? '계속' : '시작');
+    $('hint').textContent = left < 0 ? `시간을 ${fmt(Math.ceil(-left)).replace('+','')} 넘겼습니다` :
+      (left <= 30 && left > 0 ? '30초 남았습니다 · 마무리하세요' : (c.prep ? '팀마다 한 번만 쓸 수 있습니다' : (STEPS[idx].cx ? '닫힌 질문 · 답변은 예/아니요로 시작' : '')));
+    $('prev').disabled = !prep && idx === 0;
+    $('next').disabled = !prep && idx === STEPS.length - 1;
+    $('prepPro').disabled = prepUsed.pro || running;
+    $('prepCon').disabled = prepUsed.con || running;
+    $('prepPro').textContent = prepUsed.pro ? '찬성 작전 회의 사용함' : '찬성 작전 회의';
+    $('prepCon').textContent = prepUsed.con ? '반대 작전 회의 사용함' : '반대 작전 회의';
+    document.title = (running ? fmt(Math.ceil(left)) + ' · ' : '') + 'CEDA 토론 타이머';
+  }
+  function tick(t){
+    if (!running) return;
+    const dt = (t - last) / 1000; last = t;
+    left -= dt;
+    if (left <= 0 && !beeped){ beeped = true; beep(); }
+    render();
+    raf = requestAnimationFrame(tick);
+  }
+  function start(){ if (running) return; running = true; last = performance.now(); raf = requestAnimationFrame(tick); wake(); render(); }
+  function stop(){ running = false; cancelAnimationFrame(raf); render(); }
+  function load(sec){ stop(); total = sec; left = sec; beeped = false; render(); renderSteps(); }
+  function go(i){ if (prep){ prep = null; } if (i !== idx) done.add(idx); idx = Math.max(0, Math.min(STEPS.length-1, i)); load(STEPS[idx].sec); }
+  function next(){ if (prep){ prep = null; load(STEPS[idx].sec); return; } done.add(idx); if (idx < STEPS.length-1) go(idx+1); }
+  function prev(){ if (prep){ prep = null; load(STEPS[idx].sec); return; } if (idx > 0){ done.delete(idx-1); go(idx-1); } }
+  function startPrep(side){ if (prepUsed[side]) return; prepUsed[side] = true; prep = side; load(60); start(); }
+
+  // 소리: 첫 클릭 뒤에만 재생됨
+  let ac = null;
+  function beep(){
+    try{
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      [0, .35, .7].forEach(d => {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.frequency.value = 880; o.connect(g); g.connect(ac.destination);
+        const t0 = ac.currentTime + d; g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(.25, t0+.02); g.gain.exponentialRampToValueAtTime(.0001, t0+.25);
+        o.start(t0); o.stop(t0+.3);
+      });
+    }catch(e){}
+  }
+  let lock = null;
+  async function wake(){ try{ if ('wakeLock' in navigator && !lock) { lock = await navigator.wakeLock.request('screen'); lock.addEventListener('release', () => lock = null); } }catch(e){} }
+
+  $('go').onclick = () => { try{ ac = ac || new (window.AudioContext || window.webkitAudioContext)(); }catch(e){} running ? stop() : start(); };
+  $('reset').onclick = () => load(prep ? 60 : STEPS[idx].sec);
+  $('next').onclick = next; $('prev').onclick = prev;
+  $('prepPro').onclick = () => startPrep('pro');
+  $('prepCon').onclick = () => startPrep('con');
+  $('mode').onchange = e => { mode = e.target.value; try{ localStorage.setItem('ceda-timer-mode', mode); }catch(_){} render(); renderSteps(); };
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'SELECT') return;
+    if (e.code === 'Space'){ e.preventDefault(); $('go').click(); }
+    else if (e.key === 'ArrowRight') next();
+    else if (e.key === 'ArrowLeft') prev();
+    else if (e.key === 'r' || e.key === 'R') $('reset').click();
+  });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && running) wake(); });
+
+  load(STEPS[0].sec);
+})();
+</script>
+</body>
+</html>
